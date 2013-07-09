@@ -1,5 +1,9 @@
 ﻿module Ast
 
+type Comment = 
+     | Comment of string
+     | CommentBlock of string list
+
 type Identifier = Identifier of string
 
 type Literal = 
@@ -25,29 +29,13 @@ type BaseType =
      | SList
 
 type ContainerType = 
-     | Map
-     | List
-     | Set
-
-type BaseTypeValue = 
-     | BoolValue of bool
-     | ByteValue of byte
-     | I16Value of int16
-     | I32Value of int
-     | I64Value of int64
-     | DoubleValue of float
-     | StringValue of string
-     | BinaryValue of byte[]
-
-type ContainerTypeValue = 
-     | Map of Map<FieldType,FieldType>
-     | List of FieldType list
-     | Set of FieldType Set
-
+     | Map of FieldType*FieldType
+     | List of FieldType
+     | Set of FieldType
 and FieldType = 
      | IdentifierField of Identifier
-     | BaseField of BaseTypeValue
-     | ContainerField of ContainerTypeValue
+     | BaseField of BaseType
+     | ContainerField of ContainerType
 
 type DefinitionType = 
      | BaseDefinition of BaseType
@@ -115,4 +103,4 @@ type Header =
      | IncludeHeader of Include
      | NamespaceHeader of Namespace
 
-type Document = Document of Header list * Definition list
+type Document = { Headers:Header list; Definitions:Definition list }

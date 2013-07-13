@@ -226,5 +226,8 @@ and containerType input =
 
 let thriftConst input = 
     | StartsWith (asCharList "const") constDef ->
-        match constDef with
+        match fieldType constDef with
+        | Some (field,rest) -> 
+            match identifier rest with
+            | Some (ident,rest) -> Some (Ast.Const.Const.)
         

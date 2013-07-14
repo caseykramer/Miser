@@ -5,6 +5,8 @@ VisualStudioVersion = 12.0.20617.1 PREVIEW
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Miser", "Miser\Miser.fsproj", "{C8CC877E-AF4D-4380-B521-A7CCC8F15E04}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Miser.Tests", "Miser.Tests\Miser.Tests.fsproj", "{FB0AE940-ED3D-49ED-95E8-58D7D638FEF4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{C8CC877E-AF4D-4380-B521-A7CCC8F15E04}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C8CC877E-AF4D-4380-B521-A7CCC8F15E04}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C8CC877E-AF4D-4380-B521-A7CCC8F15E04}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FB0AE940-ED3D-49ED-95E8-58D7D638FEF4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FB0AE940-ED3D-49ED-95E8-58D7D638FEF4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FB0AE940-ED3D-49ED-95E8-58D7D638FEF4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FB0AE940-ED3D-49ED-95E8-58D7D638FEF4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

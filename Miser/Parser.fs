@@ -37,13 +37,13 @@ let (|StartsWith|_|) prefix (input:char list) =
     let rec loop = function
         | p::prefix,r::rest when p = r ->
             loop (prefix,rest)
-        | [],rest -> Some(rest)
+        | [],rest -> Some(toString rest)
         | _ -> None
     loop (prefix,input)
 
 let (|StringStartsWith|_|) prefix input = 
     match (asCharList input) with
-    | StartsWith prefix (rest)-> Some (rest |> toString)
+    | StartsWith prefix (rest)-> Some rest
     | _ -> None
 
 let (|StartsWithAny|_|) prefix = function 
@@ -72,11 +72,12 @@ let (|EOL|_|) = function
     | StartsWith ['\n'] (input) -> Some input
     | _ -> None
 
-let rec (|WS|_|) = function
+let rec (|WS|_|) (input:string) = 
+    match asCharList input with
     | StartsWith [' '] (WS input)
     | StartsWith ['\t'] (WS input)
     | EOL (WS input) -> Some input
-    | _ as input -> Some input
+    | _ as input -> Some (toString input)
 
 let (|PrefixedLines|) prefix (lines:string list) = 
     let prefixed, other = 
@@ -116,7 +117,7 @@ let (|InlineComment|_|) input =
         match line with
         | AsCharList(StartsWith ['/';'/'] comment)
         | AsCharList(StartsWith ['#'] comment) -> 
-            comment |> toString |> (fun c -> Ast.Comment c,rest) |> Some
+            comment |> (fun c -> Ast.Comment c,rest) |> Some
         | _ -> None
 
 let (| BlockComment|_|) lines =
@@ -128,85 +129,60 @@ let (| BlockComment|_|) lines =
             | line::rest ->
                 match parseBracketedBody ['*';'/'] [] line with
                 | None -> getComment rest (line::comment)
-                | Some (body,rest) ->  Some (Ast.CommentBlock (List.rev ((body |> toString)::comment)),rest)
-        getComment (lines |> List.tail) [comment |> toString]
+                | Some (body,rest) ->  Some (Ast.CommentBlock (List.rev ((body |> toString)::comment)),[rest])
+        getComment (lines |> List.tail) [comment]
     | _ -> None
 
 let (|StringLiteral|_|) input =
     match input with
     | Delimited ['"'] (literal,rest)
     | Delimited ['\''] (literal,rest) ->
-        Some(Ast.StringLiteral(toString literal),rest |> toString)
+        Some(Ast.StringLiteral(toString literal),rest)
     | _ -> None
 
 let (|ThriftInclude|_|) input = 
     match input with
-    | StringStartsWith (asCharList "import") (rest) ->
-        match rest with
-        | StringLiteral (literal,rest) -> Some <| ((Ast.Include literal),rest)
-        | _ -> failwith "Error parsing import"
+    | WS (StringStartsWith (asCharList "import") (rest)) ->
+        match rest with 
+        | (WS (StringLiteral (literal,rest))) -> Some <| ((Ast.Include literal),rest)
+        | _ -> failwith "Invalid include definition"
     | _ -> None
 
 let namespaceScope (input:string) = 
     match input with
-    | StringStartsWith ['*'] (rest) -> 
-        match rest with
-        | Identifier (ident,rest) -> Some(Ast.Namespace(Ast.NamespaceScope.Any,ident),rest)
-        | _ -> failwith "Error parsing namespace"
-    | StringStartsWith (asCharList "cpp") (rest) -> 
-        match rest with
-        | Identifier (ident,rest) -> Some(Ast.Namespace (Ast.NamespaceScope.Cpp,ident),rest )
-        | _ -> failwith "Error parsing namespace"
-    | StringStartsWith (asCharList "java") (rest) -> 
-        match rest with
-        | Identifier (ident,rest) -> Some(Ast.Namespace (Ast.NamespaceScope.Java,ident),rest )
-        | _ -> failwith "Error parsing namespace"
-    | StringStartsWith (asCharList "py" ) (rest) -> 
-        match rest with
-        | Identifier (ident,rest) -> Some(Ast.Namespace (Ast.NamespaceScope.Py,ident),rest )
-        | _ -> failwith "Error parsing namespace"
-    | StringStartsWith (asCharList "perl") (rest) -> 
-        match rest with
-        | Identifier (ident,rest) -> Some(Ast.Namespace (Ast.NamespaceScope.Perl,ident),rest )
-        | _ -> failwith "Error parsing namespace"
-    | StringStartsWith (asCharList "rb") (rest) -> 
-        match rest with
-        | Identifier (ident,rest) -> Some(Ast.Namespace (Ast.NamespaceScope.Rb,ident),rest )
-        | _ -> failwith "Error parsing namespace"
-    | StringStartsWith (asCharList "cocoa") (rest) -> 
-        match rest with
-        | Identifier (ident,rest) -> Some(Ast.Namespace(Ast.NamespaceScope.Cocoa,ident),rest )
-        | _ -> failwith "Error parsing namespace"
-    | StringStartsWith (asCharList "csharp") (rest) -> 
-        match rest with
-        | Identifier (ident,rest) -> Some(Ast.Namespace(Ast.NamespaceScope.CSharp,ident),rest )
-        | _ -> failwith "Error parsing namespace"
+    | WS (StringStartsWith ['*']                 (WS (Identifier (ident,rest)))) -> Some(Ast.Namespace(Ast.NamespaceScope.Any,ident),rest)
+    | WS (StringStartsWith (asCharList "cpp")    (WS (Identifier (ident,rest)))) -> Some(Ast.Namespace (Ast.NamespaceScope.Cpp,ident),rest)
+    | WS (StringStartsWith (asCharList "java")   (WS (Identifier (ident,rest)))) -> Some(Ast.Namespace (Ast.NamespaceScope.Java,ident),rest)
+    | WS (StringStartsWith (asCharList "py" )    (WS (Identifier (ident,rest)))) -> Some(Ast.Namespace (Ast.NamespaceScope.Py,ident),rest)
+    | WS (StringStartsWith (asCharList "perl")   (WS (Identifier (ident,rest)))) -> Some(Ast.Namespace (Ast.NamespaceScope.Perl,ident),rest)
+    | WS (StringStartsWith (asCharList "rb")     (WS (Identifier (ident,rest)))) -> Some(Ast.Namespace (Ast.NamespaceScope.Rb,ident),rest)
+    | WS (StringStartsWith (asCharList "cocoa")  (WS (Identifier (ident,rest)))) -> Some(Ast.Namespace(Ast.NamespaceScope.Cocoa,ident),rest)
+    | WS (StringStartsWith (asCharList "csharp") (WS (Identifier (ident,rest)))) -> Some(Ast.Namespace(Ast.NamespaceScope.CSharp,ident),rest)
     | _ -> None
 
-let (|ThriftNamespace|_|) = function 
-    | StringStartsWith (asCharList "namespace") namespaceDef ->
+let (|ThriftNamespace|_|) input =
+    match input with
+    | WS (StringStartsWith (asCharList "namespace") namespaceDef) ->
         match namespaceScope namespaceDef with
         | Some (ns,rest) -> Some(ns,rest)
-        | None -> None
+        | _ -> failwith "Error parsing namespace"
     | _ -> None
 
 let rec header input headers =
     match input with
     | ThriftInclude (incl,rest) -> header rest (Ast.IncludeHeader incl::headers)
-    | _ ->
-        match input with
-        | ThriftNamespace (namespc,rest) -> header rest (Ast.NamespaceHeader namespc::headers)
-        | _ -> Some (List.rev headers,input)
+    | ThriftNamespace (namespc,rest) -> header rest (Ast.NamespaceHeader namespc::headers)
+    | _ -> Some (List.rev headers,input)
 let (|BaseType|_|) input = 
     match (asCharList input) with
-    | StartsWith (asCharList "bool") rest   -> Some(Ast.BaseType.Bool,rest |> toString)
-    | StartsWith (asCharList "byte") rest   -> Some (Ast.BaseType.Byte,rest |> toString)
-    | StartsWith (asCharList "i16") rest    -> Some (Ast.BaseType.I16,rest |> toString)
+    | StartsWith (asCharList "bool") rest   -> Some(Ast.BaseType.Bool,rest)
+    | StartsWith (asCharList "byte") rest   -> Some (Ast.BaseType.Byte,rest)
+    | StartsWith (asCharList "i16") rest    -> Some (Ast.BaseType.I16,rest)
     | StartsWith (asCharList "int") rest
-    | StartsWith (asCharList "i32") rest    -> Some (Ast.BaseType.I32,rest |> toString)
-    | StartsWith (asCharList "i64") rest    -> Some (Ast.BaseType.I64,rest |> toString)
-    | StartsWith (asCharList "double") rest -> Some (Ast.BaseType.Double,rest |> toString)
-    | StartsWith (asCharList "string") rest -> Some (Ast.BaseType.String,rest |> toString)
+    | StartsWith (asCharList "i32") rest    -> Some (Ast.BaseType.I32,rest)
+    | StartsWith (asCharList "i64") rest    -> Some (Ast.BaseType.I64,rest)
+    | StartsWith (asCharList "double") rest -> Some (Ast.BaseType.Double,rest)
+    | StartsWith (asCharList "string") rest -> Some (Ast.BaseType.String,rest)
     | _ -> None
 let rec (|FieldType|_|) input = 
     match input with
@@ -215,23 +191,10 @@ let rec (|FieldType|_|) input =
     | ContainerType (containerType,rest) -> Some (Ast.FieldType.ContainerField containerType,rest)
     | _ -> None
 and (|ContainerType|_|) input = 
-    match asCharList input with
-    | StartsWith (asCharList "set") rest -> 
-        match rest |> toString with
-        | FieldType (ftype,rest) -> Some (Ast.ContainerType.Set(ftype),rest)
-        | _ -> failwith "invalid syntax for set definition"
-    | StartsWith (asCharList "list") rest ->
-        match rest |> toString with
-        | FieldType (ftype,rest) -> Some (Ast.ContainerType.List(ftype),rest)
-        | _ -> failwith "invalid syntax for list definition"
-    | StartsWith (asCharList "map") rest ->
-        match rest |> toString with
-        | FieldType (ftype1,rest) ->
-            match rest with
-            | FieldType (ftype2,rest) ->
-                Some (Ast.ContainerType.Map(ftype1,ftype2),rest)
-            | _ -> failwith "invalid syntax for map definition"
-        | _ -> failwith "invalid syntax for map definition"
+    match input with
+    | StringStartsWith (asCharList "set") (FieldType (ftype,rest)) -> Some (Ast.ContainerType.Set(ftype),rest)
+    | StringStartsWith (asCharList "list") (FieldType (ftype,rest)) -> Some (Ast.ContainerType.List(ftype),rest)
+    | StringStartsWith (asCharList "map") (FieldType (ftype1,FieldType (ftype2,rest))) -> Some (Ast.ContainerType.Map(ftype1,ftype2),rest)
     | _ -> None
 
 let (|NumberConstant|_|) (input:string) =

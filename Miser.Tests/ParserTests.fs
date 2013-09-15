@@ -2,7 +2,7 @@
     open NUnit.Framework
     open FsUnit
     open Parser
-
+    
     module ``Comments`` =
 
         [<Test>]
@@ -36,7 +36,7 @@
                 | Ast.CommentBlock (comment) -> comment |> should equal ([" This is a ";"multi-line block style "; "comment "])
                 | _ -> Assert.Fail()
             | _ -> Assert.Fail()
-    module Identitiers = 
+    module ``Identitiers`` = 
         
         [<Test>]
         let ``Can parse a standard alpha-numeric identifier`` () =
@@ -107,7 +107,6 @@
             match testData with
             | StringLiteral (literal,_) -> literal |> should equal (Ast.StringLiteral "This is \"The real deal\"")
             | _ -> Assert.Fail()
-
     module ``Includes`` =
         [<Test>]
         let ``Include is indicated by the use of the keyword "import"`` () =
@@ -115,7 +114,6 @@
             match testData with 
             | ThriftInclude (inc,_) -> inc |> should equal (Ast.Include(Ast.StringLiteral "Something.thrift"))
             | _ -> Assert.Fail()
-    
     module ``Namespace`` =
         
         [<Test>]
@@ -165,4 +163,53 @@
             let testData = "namespace csharp MyNamespace.Net"
             match testData with
             | ThriftNamespace (nSpace,_) -> nSpace |> should equal (Ast.Namespace(Ast.NamespaceScope.CSharp,Ast.Identifier "MyNamespace.Net"))
+            | _ -> Assert.Fail()
+    module ``Header`` = 
+        
+        [<Test>]
+        let ``Header can contain just an include`` () = 
+            let testData = """import "somefile.thrift" """
+            match testData with
+            | ThriftHeader (header,_) -> header |> should equal [(Ast.IncludeHeader(Ast.Include(Ast.StringLiteral "somefile.thrift")))]
+            | _ -> Assert.Fail()
+        
+        [<Test>]
+        let ``Header can contain multiple includes`` () = 
+            let testData = """import "somefile.thrift" 
+                              import "someotherfile.thrift" """
+            match testData with
+            | ThriftHeader (header,_) -> header |> should equal [(Ast.IncludeHeader(Ast.Include(Ast.StringLiteral "somefile.thrift")));
+                                                               (Ast.IncludeHeader(Ast.Include(Ast.StringLiteral "someotherfile.thrift")))]
+            | _ -> Assert.Fail()
+
+        [<Test>]
+        let ``Header can contain just a namespace`` () = 
+            let testData = "namespace csharp SomeNamespace.Net"
+            match testData with
+            | ThriftHeader (header,_) -> header |> should equal [(Ast.NamespaceHeader(Ast.Namespace(Ast.NamespaceScope.CSharp,Ast.Identifier "SomeNamespace.Net")))]
+            | _ -> Assert.Fail()
+
+        [<Test>]
+        let ``Header can contain multiple Namespaces`` () = 
+            let testData = """namespace csharp SomeNamespace.Net
+                              namespace java org.java.something"""
+            match testData with
+            | ThriftHeader (header,_) -> header |> should equal [(Ast.NamespaceHeader(Ast.Namespace(Ast.NamespaceScope.CSharp,Ast.Identifier "SomeNamespace.Net")))
+                                                                 (Ast.NamespaceHeader(Ast.Namespace(Ast.NamespaceScope.Java,Ast.Identifier "org.java.something")))]
+            | _ -> Assert.Fail()
+
+        [<Test>]
+        let ``Header can contain includes and namespaces`` () = 
+            let testData = """import "somefile.thrift"
+                              import "anotherfile.thrift"
+
+                              namespace csharp SomeNamespace.Net
+                              namespace java org.java.something"""
+
+            match testData with
+            | ThriftHeader (header,_) -> header |> should equal [(Ast.IncludeHeader(Ast.Include(Ast.StringLiteral "somefile.thrift")))
+                                                                 (Ast.IncludeHeader(Ast.Include(Ast.StringLiteral "anotherfile.thrift")))
+                                                                 
+                                                                 (Ast.NamespaceHeader(Ast.Namespace(Ast.NamespaceScope.CSharp,Ast.Identifier "SomeNamespace.Net")))
+                                                                 (Ast.NamespaceHeader(Ast.Namespace(Ast.NamespaceScope.Java,Ast.Identifier "org.java.something")))]
             | _ -> Assert.Fail()

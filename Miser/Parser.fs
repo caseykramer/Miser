@@ -165,14 +165,18 @@ let (|ThriftNamespace|_|) input =
     | WS (StringStartsWith (asCharList "namespace") namespaceDef) ->
         match namespaceScope namespaceDef with
         | Some (ns,rest) -> Some(ns,rest)
-        | _ -> failwith "Error parsing namespace"
+        | _ -> failwith <| sprintf "Error parsing namespace at: %s" input
     | _ -> None
 
-let rec header input headers =
-    match input with
-    | ThriftInclude (incl,rest) -> header rest (Ast.IncludeHeader incl::headers)
-    | ThriftNamespace (namespc,rest) -> header rest (Ast.NamespaceHeader namespc::headers)
-    | _ -> Some (List.rev headers,input)
+
+let (|ThriftHeader|_|) input = 
+    let rec header input headers =
+        match input with
+        | ThriftInclude (incl,rest) -> header rest (Ast.IncludeHeader incl::headers)
+        | ThriftNamespace (namespc,rest) -> header rest (Ast.NamespaceHeader namespc::headers)
+        | _ -> Some (List.rev headers,input)
+    header input List.empty
+
 let (|BaseType|_|) input = 
     match (asCharList input) with
     | StartsWith (asCharList "bool") rest   -> Some(Ast.BaseType.Bool,rest)

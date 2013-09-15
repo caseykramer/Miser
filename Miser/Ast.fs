@@ -1,15 +1,29 @@
 ﻿module Ast
 
+open System.Diagnostics
+
 type Comment = 
      | Comment of string
      | CommentBlock of string list
 
-type Identifier = Identifier of string
+[<StructuredFormatDisplay("{Display}");DebuggerDisplay("{Display}")>]
+type Identifier = Identifier of string with
+    member this.Display
+            with get() =
+                match this with
+                | Identifier s -> s
 
+[<StructuredFormatDisplay("{Display}");DebuggerDisplay("{Display}")>]
 type Literal = 
      | StringLiteral of string
      | NumericLiteral of int64
-     | DecimalLiteral of float
+     | DecimalLiteral of float with
+        member this.Display
+            with get() =
+                match this with
+                | StringLiteral s -> sprintf "\"%s\"" s
+                | NumericLiteral i -> sprintf "%i" i
+                | DecimalLiteral d -> sprintf "%f" d
 
 type ConstantValue =
      | IntConstant of int
@@ -83,6 +97,7 @@ type Definition =
      | ExceptionDefinition of Exception
      | ServiceDefinition of Service
 
+[<StructuredFormatDisplay("{Display}");DebuggerDisplay("{Display}")>]
 type NamespaceScope = 
      | Any
      | Cpp
@@ -91,16 +106,38 @@ type NamespaceScope =
      | Perl
      | Rb
      | Cocoa
-     | CSharp
+     | CSharp with
+        member this.Display
+            with get() = 
+                match this with
+                | Any -> "Any"
+                | Cpp -> "Cpp"
+                | Java -> "Java"
+                | Py -> "Python"
+                | Perl -> "Perl"
+                | Rb -> "Ruby"
+                | Cocoa -> "Cocoa"
+                | CSharp -> "C#"
 
+[<StructuredFormatDisplay("Namespace: {Display}");DebuggerDisplay("Namespace: {Display}")>]
 type Namespace = 
-     Namespace of NamespaceScope * Identifier
+     Namespace of NamespaceScope * Identifier with
+        member this.Display 
+            with get() =  
+                match this with
+                | Namespace (scope,identifier) -> sprintf "%A %A" scope identifier
 
 type Include = 
      | Include of Literal
 
+[<StructuredFormatDisplay("Header: {Display}");DebuggerDisplay("Header: {Display}")>]
 type Header =
      | IncludeHeader of Include
-     | NamespaceHeader of Namespace
+     | NamespaceHeader of Namespace with
+        member this.Display
+            with get() = 
+                match this with
+                | IncludeHeader i -> sprintf "%A" i
+                | NamespaceHeader n -> sprintf "%A" n
 
 type Document = { Headers:Header list; Definitions:Definition list }

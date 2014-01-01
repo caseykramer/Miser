@@ -6,7 +6,7 @@ type Comment =
      | Comment of string
      | CommentBlock of string list
 
-[<StructuredFormatDisplay("{Display}");DebuggerDisplay("{Display}")>]
+[<StructuredFormatDisplay("Identifier({Display})");DebuggerDisplay("Identifier({Display})")>]
 type Identifier = Identifier of string with
     member this.Display
             with get() =
@@ -26,6 +26,8 @@ type Literal =
                 | DecimalLiteral d -> sprintf "%f" d
 
 type ConstantValue =
+     | LiteralConstant of Literal
+     | IdentConstant of Identifier
      | IntConstant of int
      | DoubleConstant of float
      | ListConstant of ConstantValue list
@@ -40,7 +42,7 @@ type BaseType =
      | Double
      | String
      | Binary
-     | SList
+     | SList // slist seems to be deprecated see: https://issues.apache.org/jira/browse/THRIFT-1994
 
 type ContainerType = 
      | Map of FieldType*FieldType
@@ -59,28 +61,30 @@ type Field =
      | NumberedField of int*Field
      | RequiredField of Field
      | OptionalField of Field
-     | Field of FieldType*Identifier
+     | Field of FieldType*Identifier*ConstantValue option
 
 type Exception = 
-     | Exception of Field list
+     | Exception of Identifier*Field list
 
 type Function = 
      | OnewayFunction of Function
-     | VoidFunction of Identifier * Field list * Exception option
-     | Function of FieldType * Identifier * Field list * Exception option
+     | VoidFunction of name:Identifier * parameters:Field list * throws:Field list
+     | Function of returnType:FieldType * name:Identifier * parameters:Field list * throws:Field list
 
 type Service = 
-     | InheritsService of Service
-     | Service of Identifier * Function list
+     | Service of Identifier * Function list * Identifier option
 
 type Struct = 
      | Struct of Identifier * Field list
+
+type Union = 
+     | Union of Identifier * Field list
 
 type StringEnum = 
      | SEnum of Identifier*Literal list
 
 type Enum = 
-     | Enum of Identifier*(Literal*int) list
+     | Enum of Identifier*(int*Identifier) list
 
 type TypeDef =
      | TypeDef of DefinitionType*Identifier
@@ -96,6 +100,7 @@ type Definition =
      | StructDefinition of Struct
      | ExceptionDefinition of Exception
      | ServiceDefinition of Service
+     | UnionDefinition of Union
 
 [<StructuredFormatDisplay("{Display}");DebuggerDisplay("{Display}")>]
 type NamespaceScope = 
@@ -106,7 +111,14 @@ type NamespaceScope =
      | Perl
      | Rb
      | Cocoa
-     | CSharp with
+     | CSharp 
+     | C_Glib 
+     | Py_Twisted 
+     | Go
+     | Delphi
+     | Javascript
+     | Smalltalk
+     | Other of string with
         member this.Display
             with get() = 
                 match this with
@@ -118,6 +130,13 @@ type NamespaceScope =
                 | Rb -> "Ruby"
                 | Cocoa -> "Cocoa"
                 | CSharp -> "C#"
+                | C_Glib -> "C Glib"
+                | Py_Twisted -> "Py.Twisted"
+                | Go -> "Go"
+                | Delphi -> "Delphi"
+                | Javascript -> "Javascript"
+                | Smalltalk -> "Smalltalk"
+                | Other (name) -> name
 
 [<StructuredFormatDisplay("Namespace: {Display}");DebuggerDisplay("Namespace: {Display}")>]
 type Namespace = 

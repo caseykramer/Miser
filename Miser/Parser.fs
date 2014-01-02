@@ -17,6 +17,7 @@ let intTryParse s = match System.Int32.TryParse(s) with
 let doubleTryParse s = match System.Double.TryParse(s) with
                        | (true,d) -> Some d
                        | _ -> None
+let EOF = "".ToCharArray() |> List.ofArray
 
 let toString chars =
     match chars with
@@ -25,6 +26,9 @@ let toString chars =
 
 let asCharList (s:string) = 
     s.ToCharArray() |> List.ofArray 
+
+let (|AsCharList|) (str:string) = 
+    List.ofSeq str
 
 let toLines (s:string) = 
     s.Split([|'\r';'\n'|]) |> List.ofArray |> List.filter (fun s -> not(System.String.IsNullOrWhiteSpace(s)))
@@ -84,10 +88,35 @@ let (|EOL|_|) = function
     | StartsWith ['\n'] (input) -> Some input
     | _ -> None
 
+let (|InlineComment|_|) (input:string) =
+    match input with
+    | Bracketed ['/';'/'] ['\r';'\n'] (comment,rest)
+    | Bracketed ['/';'/'] ['\r']      (comment,rest)
+    | Bracketed ['/';'/'] ['\n']      (comment,rest)
+    | Bracketed ['#']     ['\r';'\n'] (comment,rest)
+    | Bracketed ['#']     ['\r']      (comment,rest)
+    | Bracketed ['#']     ['\n']      (comment,rest) -> Some <| (Ast.Comment(comment |> toString),rest) 
+    | StringStartsWith ['#'] (comment)
+    | StringStartsWith ['/';'/'] (comment) -> Some <| (Ast.Comment(comment),"") 
+    |  _ -> None
+
+let (| BlockComment|_|) (input:char list) =
+    match input |> toString with
+    | Bracketed ['/';'*'] ['*';'/'] (comment,rest) -> Some(Ast.CommentBlock(comment |> toString),rest)
+    | _ -> None
+
+let (|DocComment|_|) (input:string) =
+    match input with
+    | Bracketed ['/';'*';'*'] ['*';'/'] (comment,rest) -> Some(Ast.DocComment(comment |> toString),rest)
+    | _ -> None
+
 let rec (|WS|_|) (input:string) = 
     match asCharList input with
     | StartsWith [' '] (WS input)
     | StartsWith ['\t'] (WS input)
+    | StartsWith ['#'] (WS input)
+    | StartsWith ['/';'/'] (WS input)
+    | BlockComment (_, WS input)
     | EOL (WS input) -> Some input
     | _ as input -> Some (toString input)
 
@@ -104,9 +133,6 @@ let (|LinesSeparated|) lines =
     | par, _::rest
     | par, ([] as rest) -> par, rest
 
-let (|AsCharList|) (str:string) = 
-    List.ofSeq str
-
 let listSeparators = [',';';']
 let letters = ['A'..'Z'] @ ['a'..'z']
 let numbers = ['0'..'9']
@@ -120,29 +146,6 @@ let (|Identifier|_|) (input:string) =
             | StartsWithAny idetifierChars (p,rest) -> getIdentifier rest (p::identifier)
             | _ -> Some(Ast.Identifier (List.rev identifier |> toString),input |> toString)
         getIdentifier rest [p]
-    | _ -> None
-
-let (|InlineComment|_|) input =
-    match input with
-    | [] -> None
-    | line::rest ->
-        match line with
-        | AsCharList(StartsWith ['/';'/'] comment)
-        | AsCharList(StartsWith ['#'] comment) -> 
-            comment |> (fun c -> Ast.Comment c,rest) |> Some
-        | _ -> None
-
-let (| BlockComment|_|) lines =
-    match lines |> List.head with
-    | AsCharList(StartsWith ['/';'*'] comment) ->
-        let rec getComment inLines comment =
-            match inLines with
-            | [] -> Some (Ast.CommentBlock (List.rev comment),[])
-            | line::rest ->
-                match parseBracketedBody ['*';'/'] [] line with
-                | None -> getComment rest (line::comment)
-                | Some (body,rest) ->  Some (Ast.CommentBlock (List.rev ((body |> toString)::comment)),[rest])
-        getComment (lines |> List.tail) [comment]
     | _ -> None
 
 let (|StringLiteral|_|) input =

@@ -8,33 +8,41 @@
         [<Test>]
         let ``Can parse single in-line comment starting with // from single line`` () = 
             let testData = "// This is a single in-line comment with no additional lines"
-            match [testData] with
+            match testData with
             | InlineComment (comment,rest) -> comment |> should equal (Ast.Comment " This is a single in-line comment with no additional lines")
             | _ -> Assert.Fail()
         [<Test>]
         let ``Can parse single in-line comment starting with # from single line`` () = 
-            let testData = "# This is a signle in-line comment starting with #"
-            match [testData] with
-            | InlineComment (comment,rest) -> comment |> should equal (Ast.Comment " This is a signle in-line comment starting with #")
+            let testData = "# This is a single in-line comment starting with #"
+            match testData with
+            | InlineComment (comment,rest) -> comment |> should equal (Ast.Comment " This is a single in-line comment starting with #")
             | _ -> Assert.Fail()
         [<Test>]
         let ``Can parse single in-line comment with multiple lines`` () = 
-            let testData = ["// This is a single in-line comment"
-                            "This is something else"]
+            let testData = """// This is a single in-line comment
+This is something else"""
             match testData with
-            | InlineComment (comment,rest) -> comment |> should equal (Ast.Comment " This is a single in-line comment");rest |> List.head |> should equal "This is something else"
+            | InlineComment (comment,rest) -> comment |> should equal (Ast.Comment " This is a single in-line comment");rest |> should equal "This is something else"
             | _ -> Assert.Fail()
 
         [<Test>]
         let ``Can parse a multi-line block comment`` () = 
-            let testData = ["/* This is a "
-                            "multi-line block style "
-                            "comment */"]
-            match testData with
+            let testData = """/* This is a
+multi-line block style
+comment */"""
+            match asCharList testData with
             | BlockComment (comment,rest) ->
                 match comment with
-                | Ast.CommentBlock (comment) -> comment |> should equal ([" This is a ";"multi-line block style "; "comment "])
+                | Ast.CommentBlock (comment) -> comment |> should equal (" This is a\r\nmulti-line block style\r\ncomment ")
                 | _ -> Assert.Fail()
+            | _ -> Assert.Fail()
+        [<Test>]
+        let ``Can parse doc-comments`` () = 
+            let testdata = """/**
+ * This is a sample doc comment
+ */"""
+            match testdata with
+            | DocComment (comment,_) -> comment |> should equal (Ast.DocComment("\r\n * This is a sample doc comment\r\n "))
             | _ -> Assert.Fail()
     module ``Identifiers`` =
         [<Test>]

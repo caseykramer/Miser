@@ -4,7 +4,8 @@ open System.Diagnostics
 
 type Comment = 
      | Comment of string
-     | CommentBlock of string list
+     | DocComment of string
+     | CommentBlock of string
 
 [<StructuredFormatDisplay("Identifier({Display})");DebuggerDisplay("Identifier({Display})")>]
 type Identifier = Identifier of string with

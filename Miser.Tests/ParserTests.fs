@@ -8,20 +8,20 @@
         [<Test>]
         let ``Can parse single in-line comment starting with // from single line`` () = 
             let testData = "// This is a single in-line comment with no additional lines"
-            match testData with
+            match asCharList testData with
             | InlineComment (comment,rest) -> comment |> should equal (Ast.Comment " This is a single in-line comment with no additional lines")
             | _ -> Assert.Fail()
         [<Test>]
         let ``Can parse single in-line comment starting with # from single line`` () = 
             let testData = "# This is a single in-line comment starting with #"
-            match testData with
+            match asCharList testData with
             | InlineComment (comment,rest) -> comment |> should equal (Ast.Comment " This is a single in-line comment starting with #")
             | _ -> Assert.Fail()
         [<Test>]
         let ``Can parse single in-line comment with multiple lines`` () = 
             let testData = """// This is a single in-line comment
 This is something else"""
-            match testData with
+            match asCharList testData with
             | InlineComment (comment,rest) -> comment |> should equal (Ast.Comment " This is a single in-line comment");rest |> should equal "This is something else"
             | _ -> Assert.Fail()
 
@@ -612,3 +612,26 @@ comment */"""
                                                                                               Ast.NumberedField(2,Ast.RequiredField(Ast.Field(Ast.BaseField(Ast.I32),Ast.Identifier("num2"),None)))
                                                                                              ],[])],None)))
                 | _ -> failwith "Expecting ServiceDefinition(Service(Identifier(\"MyService\"),[VoidFunction(Identifier(\"ping\"),[],[NumberedField(1,RequiredField(Field(IdentifierField(Identifier(\"SomeException\")),Identifier(\"err1\"),None)));NumberedField(2,RequiredField(Field(IdentifierField(Identifier(\"AnotherException\")),Identifier(\"err2\"),None)))]);Function(BaseField(I32),Identifier(\"add\"),[NumberedField(1,RequiredField(Field(BaseField(I32),Identifier(\"num1\"),None)));NumberedField(2,RequiredField(Field(BaseField(I32),Identifier(\"num2\"),None)))],[])],None)))"
+            [<Test>]
+            let ``Can parse a service with comments`` () = 
+                let testdata = """service MyService { // Service definition
+                                    /**
+                                     * Sends a ping signal to the server
+                                     */
+                                    void ping()
+
+                                    /**
+                                     * Adds two numbers and returns the results
+                                     */
+                                    i32 add(1:i32 num1;2:i32 num2)
+                                }"""
+                match testdata with
+                | Service(service,_) ->
+                    service |> should equal (Ast.ServiceDefinition(Ast.Service(Ast.Identifier("MyService"),
+                                                                               [Ast.VoidFunction(Ast.Identifier("ping"),[],[]);
+                                                                                Ast.Function(Ast.BaseField(Ast.I32),
+                                                                                             Ast.Identifier("add"),
+                                                                                             [Ast.NumberedField(1,Ast.RequiredField(Ast.Field(Ast.BaseField(Ast.I32),Ast.Identifier("num1"),None)))
+                                                                                              Ast.NumberedField(2,Ast.RequiredField(Ast.Field(Ast.BaseField(Ast.I32),Ast.Identifier("num2"),None)))
+                                                                                             ],[])],None)))
+                | _ -> failwith "Expecting ServiceDefinition(Service(Identifier(\"MyService\"),[VoidFunction(Identifier(\"ping\"),[],[]);Function(BaseField(I32),Identifier(\"add\"),[NumberedField(1,RequiredField(Field(BaseField(I32),Identifier(\"num1\"),None)));NumberedField(2,RequiredField(Field(BaseField(I32),Identifier(\"num2\"),None)))],[])],Some (Identifier(\"AnotherService\"))))"

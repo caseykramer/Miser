@@ -88,8 +88,8 @@ let (|EOL|_|) = function
     | StartsWith ['\n'] (input) -> Some input
     | _ -> None
 
-let (|InlineComment|_|) (input:string) =
-    match input with
+let (|InlineComment|_|) (input:char list) =
+    match input |> toString with
     | Bracketed ['/';'/'] ['\r';'\n'] (comment,rest)
     | Bracketed ['/';'/'] ['\r']      (comment,rest)
     | Bracketed ['/';'/'] ['\n']      (comment,rest)
@@ -115,7 +115,7 @@ let rec (|WS|_|) (input:string) =
     | StartsWith [' '] (WS input)
     | StartsWith ['\t'] (WS input)
     | StartsWith ['#'] (WS input)
-    | StartsWith ['/';'/'] (WS input)
+    | InlineComment (_, WS input)
     | BlockComment (_, WS input)
     | EOL (WS input) -> Some input
     | _ as input -> Some (toString input)

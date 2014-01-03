@@ -119,6 +119,7 @@ type NamespaceScope =
      | Delphi
      | Javascript
      | Smalltalk
+     | Php
      | Other of string with
         member this.Display
             with get() = 
@@ -137,6 +138,7 @@ type NamespaceScope =
                 | Delphi -> "Delphi"
                 | Javascript -> "Javascript"
                 | Smalltalk -> "Smalltalk"
+                | Php -> "Php"
                 | Other (name) -> name
 
 [<StructuredFormatDisplay("Namespace: {Display}");DebuggerDisplay("Namespace: {Display}")>]

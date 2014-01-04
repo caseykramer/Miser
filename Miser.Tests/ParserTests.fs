@@ -1182,4 +1182,243 @@ struct StructB {
   2: required StructA ab;
 }"""
             let doc = Parser.parseDocument document
-            Assert.Pass()
+            doc.Headers.[0]  |> should equal (NamespaceHeader(Namespace(NamespaceScope.C_Glib,Identifier("TTest"))))
+            doc.Headers.[1]  |> should equal (NamespaceHeader(Namespace(NamespaceScope.Java,Identifier("thrift.test"))))
+            doc.Headers.[2]  |> should equal (NamespaceHeader(Namespace(NamespaceScope.Cpp,Identifier("thrift.test"))))
+            doc.Headers.[3]  |> should equal (NamespaceHeader(Namespace(NamespaceScope.Rb,Identifier("Thrift.Test"))))
+            doc.Headers.[4]  |> should equal (NamespaceHeader(Namespace(NamespaceScope.Perl,Identifier("ThriftTest"))))
+            doc.Headers.[5]  |> should equal (NamespaceHeader(Namespace(NamespaceScope.CSharp,Identifier("Thrift.Test"))))
+            doc.Headers.[6]  |> should equal (NamespaceHeader(Namespace(NamespaceScope.Javascript,Identifier("ThriftTest"))))
+            doc.Headers.[7]  |> should equal (NamespaceHeader(Namespace(NamespaceScope.Smalltalk,Identifier("ThriftTest"))))
+            doc.Headers.[8]  |> should equal (NamespaceHeader(Namespace(NamespaceScope.Py,Identifier("ThriftTest"))))
+            doc.Headers.[9]  |> should equal (NamespaceHeader(Namespace(NamespaceScope.Py_Twisted,Identifier("ThriftTest"))))
+            doc.Headers.[10] |> should equal (NamespaceHeader(Namespace(NamespaceScope.Go,Identifier("ThriftTest"))))
+            doc.Headers.[11] |> should equal (NamespaceHeader(Namespace(NamespaceScope.Php,Identifier("ThriftTest"))))
+            doc.Headers.[12] |> should equal (NamespaceHeader(Namespace(NamespaceScope.Delphi,Identifier("Thrift.Test"))))
+            doc.Headers.[13] |> should equal (NamespaceHeader(Namespace(NamespaceScope.Cocoa,Identifier("ThriftTest"))))
+
+            doc.Headers.[14] |> should equal (NamespaceHeader(Namespace(NamespaceScope.Other("noexist"),Identifier("ThriftTest"))))
+            doc.Headers.[15] |> should equal (NamespaceHeader(Namespace(NamespaceScope.Other("cpp.noexist"),Identifier("ThriftTest"))))
+
+            doc.Headers.[16] |> should equal (NamespaceHeader(Namespace(NamespaceScope.Any,Identifier("thrift.test"))))
+
+            doc.Definitions.[0]  |> should equal (EnumDefinition(Enum(Identifier("Numberz"),[(1,Identifier("ONE"))
+                                                                                             (2,Identifier("TWO"))
+                                                                                             (3,Identifier("THREE"))
+                                                                                             (5,Identifier("FIVE"))
+                                                                                             (6,Identifier("SIX"))
+                                                                                             (8,Identifier("EIGHT"))
+                                                                                             ])))
+            doc.Definitions.[1]  |> should equal (ConstDefinition(Const(IdentifierField(Identifier("Numberz")),Identifier("myNumberz"),ConstantValue.IdentConstant(Identifier("Numberz.ONE")))))
+
+            doc.Definitions.[2]  |> should equal (TypeDefinition(TypeDef(BaseDefinition(I64),Identifier("UserId"))))
+
+            doc.Definitions.[3]  |> should equal (StructDefinition(Struct(Identifier("Bonk"),
+                                                                          [NumberedField(1,Field(BaseField(String),Identifier("message"),None))
+                                                                           NumberedField(2,Field(BaseField(I32),Identifier("type"),None))
+                                                                          ])))
+
+            doc.Definitions.[4]  |> should equal (TypeDefinition(TypeDef(ContainerDefinition(ContainerType.Map(BaseField(String),IdentifierField(Identifier("Bonk")))),Identifier("MapType"))))
+
+            doc.Definitions.[5]  |> should equal (StructDefinition(Struct(Identifier("Bools"),
+                                                                          [NumberedField(1,Field(BaseField(Bool),Identifier("im_true"),None))
+                                                                           NumberedField(2,Field(BaseField(Bool),Identifier("im_false"),None))
+                                                                          ])))
+            doc.Definitions.[6]  |> should equal (StructDefinition(Struct(Identifier("Xtruct"),
+                                                                          [NumberedField(1,Field(BaseField(String),Identifier("string_thing"),None))
+                                                                           NumberedField(4,Field(BaseField(Byte),Identifier("byte_thing"),None))
+                                                                           NumberedField(9,Field(BaseField(I32),Identifier("i32_thing"),None))
+                                                                           NumberedField(11,Field(BaseField(I64),Identifier("i64_thing"),None))
+                                                                          ])))
+            doc.Definitions.[7]  |> should equal (StructDefinition(Struct(Identifier("Xtruct2"),
+                                                                          [NumberedField(1,Field(BaseField(Byte),Identifier("byte_thing"),None))
+                                                                           NumberedField(2,Field(IdentifierField(Identifier("Xtruct")),Identifier("struct_thing"),None))
+                                                                           NumberedField(3,Field(BaseField(I32),Identifier("i32_thing"),None))
+                                                                          ])))
+            doc.Definitions.[8]  |> should equal (StructDefinition(Struct(Identifier("Xtruct3"),
+                                                                          [NumberedField(1,Field(BaseField(String),Identifier("string_thing"),None))
+                                                                           NumberedField(4,Field(BaseField(I32),Identifier("changed"),None))
+                                                                           NumberedField(9,Field(BaseField(I32),Identifier("i32_thing"),None))
+                                                                           NumberedField(11,Field(BaseField(I64),Identifier("i64_thing"),None))
+                                                                          ])))
+            doc.Definitions.[9]  |> should equal (StructDefinition(Struct(Identifier("Insanity"),
+                                                                          [NumberedField(1,Field(ContainerField(ContainerType.Map(IdentifierField(Identifier("Numberz")),IdentifierField(Identifier("UserId")))),Identifier("userMap"),None))
+                                                                           NumberedField(2,Field(ContainerField(ContainerType.List(IdentifierField(Identifier("Xtruct")))),Identifier("xtructs"),None))
+                                                                          ])))
+            doc.Definitions.[10] |> should equal (StructDefinition(Struct(Identifier("CrazyNesting"),
+                                                                          [NumberedField(1,Field(BaseField(String),Identifier("string_field"),None))
+                                                                           NumberedField(2,OptionalField(Field(ContainerField(ContainerType.Set(IdentifierField(Identifier("Insanity")))),Identifier("set_field"),None)))
+                                                                           NumberedField(3,RequiredField(Field(
+                                                                                                            ContainerField(
+                                                                                                                ContainerType.List(
+                                                                                                                    ContainerField(
+                                                                                                                        ContainerType.Map(
+                                                                                                                            ContainerField(
+                                                                                                                                ContainerType.Set(BaseField(I32))
+                                                                                                                            ),                                                                                                                        
+                                                                                                                            ContainerField(
+                                                                                                                                ContainerType.Map(
+                                                                                                                                    BaseField(I32),
+                                                                                                                                    ContainerField(
+                                                                                                                                        ContainerType.Set(
+                                                                                                                                            ContainerField(
+                                                                                                                                                ContainerType.List(
+                                                                                                                                                    ContainerField(
+                                                                                                                                                        ContainerType.Map(
+                                                                                                                                                            IdentifierField(
+                                                                                                                                                                Identifier("Insanity")),
+                                                                                                                                                            BaseField(String)
+                                                                                                                                                        )
+                                                                                                                                                    )
+                                                                                                                                                )
+                                                                                                                                            )
+                                                                                                                                        )
+                                                                                                                                    )
+                                                                                                                                )
+                                                                                                                            )
+                                                                                                                        )
+                                                                                                                    )
+                                                                                                                )
+                                                                                                            ),Identifier("list_field"),None)))
+                                                                           NumberedField(4,Field(BaseField(Binary),Identifier("binary_field"),None))
+                                                                          ])))
+            doc.Definitions.[11] |> should equal (ExceptionDefinition(Exception(Identifier("Xception"),
+                                                                                [NumberedField(1,Field(BaseField(I32),Identifier("errorCode"),None))
+                                                                                 NumberedField(2,Field(BaseField(String),Identifier("message"),None))
+                                                                                ])))
+            doc.Definitions.[12] |> should equal (ExceptionDefinition(Exception(Identifier("Xception2"),
+                                                                                [NumberedField(1,Field(BaseField(I32),Identifier("errorCode"),None))
+                                                                                 NumberedField(2,Field(IdentifierField(Identifier("Xtruct")),Identifier("struct_thing"),None))
+                                                                                ])))
+            doc.Definitions.[13] |> should equal (StructDefinition(Struct(Identifier("EmptyStruct"),[])))
+            doc.Definitions.[14] |> should equal (StructDefinition(Struct(Identifier("OneField"),
+                                                                          [NumberedField(1,Field(IdentifierField(Identifier("EmptyStruct")),Identifier("field"),None))])))
+
+            doc.Definitions.[15] |> should equal (ServiceDefinition(Service(Identifier("ThriftTest"),
+                                                                            [VoidFunction(Identifier("testVoid"),[],[])
+                                                                             Function(BaseField(String),Identifier("testString"),
+                                                                                      [NumberedField(1,Field(BaseField(String),Identifier("thing"),None))],[])
+                                                                             Function(BaseField(Byte),Identifier("testByte"),
+                                                                                      [NumberedField(1,Field(BaseField(Byte),Identifier("thing"),None))],[])
+                                                                             Function(BaseField(I32),Identifier("testI32"),
+                                                                                      [NumberedField(1,Field(BaseField(I32),Identifier("thing"),None))],[])
+                                                                             Function(BaseField(I64),Identifier("testI64"),
+                                                                                      [NumberedField(1,Field(BaseField(I64),Identifier("thing"),None))],[])
+                                                                             Function(BaseField(Double),Identifier("testDouble"),
+                                                                                      [NumberedField(1,Field(BaseField(Double),Identifier("thing"),None))],[])
+                                                                             Function(IdentifierField(Identifier("Xtruct")),Identifier("testStruct"),
+                                                                                      [NumberedField(1,Field(IdentifierField(Identifier("Xtruct")),Identifier("thing"),None))],[])
+                                                                             Function(IdentifierField(Identifier("Xtruct2")),Identifier("testNest"),
+                                                                                      [NumberedField(1,Field(IdentifierField(Identifier("Xtruct2")),Identifier("thing"),None))],[])
+                                                                             Function(ContainerField(ContainerType.Map(BaseField(I32),BaseField(I32))),Identifier("testMap"),
+                                                                                      [NumberedField(1,Field(ContainerField(ContainerType.Map(BaseField(I32),BaseField(I32))),Identifier("thing"),None))],[])
+                                                                             Function(ContainerField(ContainerType.Map(BaseField(String),BaseField(String))),Identifier("testStringMap"),
+                                                                                      [NumberedField(1,Field(ContainerField(ContainerType.Map(BaseField(String),BaseField(String))),Identifier("thing"),None))],[])
+                                                                             Function(ContainerField(ContainerType.Set(BaseField(I32))),Identifier("testSet"),
+                                                                                      [NumberedField(1,Field(ContainerField(ContainerType.Set(BaseField(I32))),Identifier("thing"),None))],[])
+                                                                             Function(ContainerField(ContainerType.List(BaseField(I32))),Identifier("testList"),
+                                                                                      [NumberedField(1,Field(ContainerField(ContainerType.List(BaseField(I32))),Identifier("thing"),None))],[])
+                                                                             Function(IdentifierField(Identifier("Numberz")),Identifier("testEnum"),
+                                                                                      [NumberedField(1,Field(IdentifierField(Identifier("Numberz")),Identifier("thing"),None))],[])
+                                                                             Function(IdentifierField(Identifier("UserId")),Identifier("testTypedef"),
+                                                                                      [NumberedField(1,Field(IdentifierField(Identifier("UserId")),Identifier("thing"),None))],[])
+                                                                             Function(ContainerField(ContainerType.Map(BaseField(I32),ContainerField(ContainerType.Map(BaseField(I32),BaseField(I32))))),Identifier("testMapMap"),
+                                                                                      [NumberedField(1,Field(BaseField(I32),Identifier("hello"),None))],[])
+                                                                             Function(ContainerField(ContainerType.Map(IdentifierField(Identifier("UserId")),ContainerField(ContainerType.Map(IdentifierField(Identifier("Numberz")),IdentifierField(Identifier("Insanity")))))),Identifier("testInsanity"),
+                                                                                      [NumberedField(1,Field(IdentifierField(Identifier("Insanity")),Identifier("argument"),None))],[])
+                                                                             Function(IdentifierField(Identifier("Xtruct")),Identifier("testMulti"),
+                                                                                      [NumberedField(1,Field(BaseField(Byte),Identifier("arg0"),None))
+                                                                                       NumberedField(2,Field(BaseField(I32),Identifier("arg1"),None))
+                                                                                       NumberedField(3,Field(BaseField(I64),Identifier("arg2"),None))
+                                                                                       NumberedField(4,Field(ContainerField(ContainerType.Map(BaseField(I16),BaseField(String))),Identifier("arg3"),None))
+                                                                                       NumberedField(5,Field(IdentifierField(Identifier("Numberz")),Identifier("arg4"),None))
+                                                                                       NumberedField(6,Field(IdentifierField(Identifier("UserId")),Identifier("arg5"),None))
+                                                                                      ],[])
+                                                                             VoidFunction(Identifier("testException"),
+                                                                                          [NumberedField(1,Field(BaseField(String),Identifier("arg"),None))],
+                                                                                          [NumberedField(1,Field(IdentifierField(Identifier("Xception")),Identifier("err1"),None))])
+                                                                             Function(IdentifierField(Identifier("Xtruct")),Identifier("testMultiException"),
+                                                                                      [NumberedField(1,Field(BaseField(String),Identifier("arg0"),None))
+                                                                                       NumberedField(2,Field(BaseField(String),Identifier("arg1"),None))
+                                                                                      ],
+                                                                                      [NumberedField(1,Field(IdentifierField(Identifier("Xception")),Identifier("err1"),None))
+                                                                                       NumberedField(2,Field(IdentifierField(Identifier("Xception2")),Identifier("err2"),None))
+                                                                                      ])
+                                                                             OnewayFunction(VoidFunction(Identifier("testOneway"),
+                                                                                                         [NumberedField(1,Field(BaseField(I32),Identifier("secondsToSleep"),None))],[]))
+                                                                            ],None)))
+            doc.Definitions.[16] |> should equal (ServiceDefinition(Service(Identifier("SecondService"),
+                                                                            [VoidFunction(Identifier("blahBlah"),[],[])
+                                                                             Function(BaseField(String),Identifier("secondtestString"),
+                                                                                                        [NumberedField(1,Field(BaseField(String),Identifier("thing"),None))],[])
+                                                                            ],None)))
+            doc.Definitions.[17] |> should equal (StructDefinition(Struct(Identifier("VersioningTestV1"),
+                                                                          [NumberedField(1,Field(BaseField(I32),Identifier("begin_in_both"),None))
+                                                                           NumberedField(3,Field(BaseField(String),Identifier("old_string"),None))
+                                                                           NumberedField(12,Field(BaseField(I32),Identifier("end_in_both"),None))
+                                                                          ])))
+            doc.Definitions.[18] |> should equal (StructDefinition(Struct(Identifier("VersioningTestV2"),
+                                                                          [NumberedField(1,Field(BaseField(I32),Identifier("begin_in_both"),None))
+                                                                           NumberedField(2,Field(BaseField(I32),Identifier("newint"),None))
+                                                                           NumberedField(3,Field(BaseField(Byte),Identifier("newbyte"),None))
+                                                                           NumberedField(4,Field(BaseField(I16),Identifier("newshort"),None))
+                                                                           NumberedField(5,Field(BaseField(I64),Identifier("newlong"),None))
+                                                                           NumberedField(6,Field(BaseField(Double),Identifier("newdouble"),None))
+                                                                           NumberedField(7,Field(IdentifierField(Identifier("Bonk")),Identifier("newstruct"),None))
+                                                                           NumberedField(8,Field(ContainerField(ContainerType.List(BaseField(I32))),Identifier("newlist"),None))
+                                                                           NumberedField(9,Field(ContainerField(ContainerType.Set(BaseField(I32))),Identifier("newset"),None))
+                                                                           NumberedField(10,Field(ContainerField(ContainerType.Map(BaseField(I32),BaseField(I32))),Identifier("newmap"),None))
+                                                                           NumberedField(11,Field(BaseField(String),Identifier("newstring"),None))
+                                                                           NumberedField(12,Field(BaseField(I32),Identifier("end_in_both"),None))
+                                                                          ])))
+            doc.Definitions.[19] |> should equal (StructDefinition(Struct(Identifier("ListTypeVersioningV1"),
+                                                                          [NumberedField(1,Field(ContainerField(ContainerType.List(BaseField(I32))),Identifier("myints"),None))
+                                                                           NumberedField(2,Field(BaseField(String),Identifier("hello"),None))
+                                                                          ])))
+            doc.Definitions.[20] |> should equal (StructDefinition(Struct(Identifier("ListTypeVersioningV2"),
+                                                                          [NumberedField(1,Field(ContainerField(ContainerType.List(BaseField(String))),Identifier("strings"),None))
+                                                                           NumberedField(2,Field(BaseField(String),Identifier("hello"),None))
+                                                                          ])))
+            doc.Definitions.[21] |> should equal (StructDefinition(Struct(Identifier("GuessProtocolStruct"),
+                                                                          [NumberedField(7,Field(ContainerField(ContainerType.Map(BaseField(String),BaseField(String))),Identifier("map_field"),None))
+                                                                          ])))
+            doc.Definitions.[22] |> should equal (StructDefinition(Struct(Identifier("LargeDeltas"),
+                                                                          [NumberedField(1,Field(IdentifierField(Identifier("Bools")),Identifier("b1"),None))
+                                                                           NumberedField(10,Field(IdentifierField(Identifier("Bools")),Identifier("b10"),None))
+                                                                           NumberedField(100,Field(IdentifierField(Identifier("Bools")),Identifier("b100"),None))
+                                                                           NumberedField(500,Field(BaseField(Bool),Identifier("check_true"),None))
+                                                                           NumberedField(1000,Field(IdentifierField(Identifier("Bools")),Identifier("b1000"),None))
+                                                                           NumberedField(1500,Field(BaseField(Bool),Identifier("check_false"),None))
+                                                                           NumberedField(2000,Field(IdentifierField(Identifier("VersioningTestV2")),Identifier("vertwo2000"),None))
+                                                                           NumberedField(2500,Field(ContainerField(ContainerType.Set(BaseField(String))),Identifier("a_set2500"),None))
+                                                                           NumberedField(3000,Field(IdentifierField(Identifier("VersioningTestV2")),Identifier("vertwo3000"),None))
+                                                                           NumberedField(4000,Field(ContainerField(ContainerType.List(BaseField(I32))),Identifier("big_numbers"),None))
+                                                                          ])))
+            doc.Definitions.[23] |> should equal (StructDefinition(Struct(Identifier("NestedListsI32x2"),
+                                                                          [NumberedField(1,Field(ContainerField(ContainerType.List(ContainerField(ContainerType.List(BaseField(I32))))),Identifier("integerlist"),None))
+                                                                          ])))
+            doc.Definitions.[24] |> should equal (StructDefinition(Struct(Identifier("NestedListsI32x3"),
+                                                                          [NumberedField(1,Field(ContainerField(ContainerType.List(ContainerField(ContainerType.List(ContainerField(ContainerType.List(BaseField(I32))))))),Identifier("integerlist"),None))
+                                                                          ])))
+            doc.Definitions.[25] |> should equal (StructDefinition(Struct(Identifier("NestedMixedx2"),
+                                                                          [NumberedField(1,Field(ContainerField(ContainerType.List(ContainerField(ContainerType.Set(BaseField(I32))))),Identifier("int_set_list"),None))
+                                                                           NumberedField(2,Field(ContainerField(ContainerType.Map(BaseField(I32),ContainerField(ContainerType.Set(BaseField(String))))),Identifier("map_int_strset"),None))
+                                                                           NumberedField(3,Field(ContainerField(ContainerType.List(ContainerField(ContainerType.Map(BaseField(I32),ContainerField(ContainerType.Set(BaseField(String))))))),Identifier("map_int_strset_list"),None))
+                                                                          ])))
+            doc.Definitions.[26] |> should equal (StructDefinition(Struct(Identifier("ListBonks"),
+                                                                          [NumberedField(1,Field(ContainerField(ContainerType.List(IdentifierField(Identifier("Bonk")))),Identifier("bonk"),None))
+                                                                          ])))
+            doc.Definitions.[27] |> should equal (StructDefinition(Struct(Identifier("NestedListsBonk"),
+                                                                          [NumberedField(1,Field(ContainerField(ContainerType.List(ContainerField(ContainerType.List(ContainerField(ContainerType.List(IdentifierField(Identifier("Bonk")))))))),Identifier("bonk"),None))
+                                                                          ])))
+            doc.Definitions.[28] |> should equal (StructDefinition(Struct(Identifier("BoolTest"),
+                                                                          [NumberedField(1,OptionalField(Field(BaseField(Bool),Identifier("b"),Some(ConstantValue.LiteralConstant(BoolLiteral(true))))))
+                                                                           NumberedField(2,OptionalField(Field(BaseField(String),Identifier("s"),Some(ConstantValue.LiteralConstant(StringLiteral("true"))))))
+                                                                          ])))
+            doc.Definitions.[29] |> should equal (StructDefinition(Struct(Identifier("StructA"),
+                                                                          [NumberedField(1,RequiredField(Field(BaseField(String),Identifier("s"),None)))
+                                                                          ])))
+            doc.Definitions.[30] |> should equal (StructDefinition(Struct(Identifier("StructB"),
+                                                                          [NumberedField(1,OptionalField(Field(IdentifierField(Identifier("StructA")),Identifier("aa"),None)))
+                                                                           NumberedField(2,RequiredField(Field(IdentifierField(Identifier("StructA")),Identifier("ab"),None)))
+                                                                          ])))

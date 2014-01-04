@@ -175,6 +175,12 @@ let (|Identifier|_|) (input:string) =
         getIdentifier rest [p]
     | _ -> None
 
+let (|BoolLiteral|_|) input = 
+    match input with
+    | StringStartsWith (asCharList "true") (rest) -> Some(Ast.BoolLiteral(true),rest)
+    | StringStartsWith (asCharList "false") (rest) -> Some(Ast.BoolLiteral(false),rest)
+    | _ -> None
+
 let (|StringLiteral|_|) input =
     match input with
     | Delimited ['"'] (literal,rest)
@@ -339,6 +345,7 @@ let rec (|ConstList|_|) (input:string) =
     | _ -> None
 and (|ConstValue|_|) (input:string) = 
     match input with
+        | WS (BoolLiteral(bliteral,rest)) -> Some <| (Ast.ConstantValue.LiteralConstant(bliteral),rest)
         | WS (StringLiteral(sliteral,rest)) -> Some <| (Ast.ConstantValue.LiteralConstant(sliteral),rest)
         | WS (NumberConstant(nconst,rest)) -> Some <| (nconst,rest)
         | WS (Identifier(ident,rest)) -> Some <| (Ast.ConstantValue.IdentConstant(ident),rest)

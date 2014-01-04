@@ -9,20 +9,20 @@
         let ``Can parse single in-line comment starting with // from single line`` () = 
             let testData = "// This is a single in-line comment with no additional lines"
             match testData with
-            | InlineComment (comment,rest) -> comment |> should equal (Ast.Comment " This is a single in-line comment with no additional lines")
+            | AsCharList(InlineComment (comment,rest)) -> comment |> should equal (Ast.Comment " This is a single in-line comment with no additional lines")
             | _ -> Assert.Fail()
         [<Test>]
         let ``Can parse single in-line comment starting with # from single line`` () = 
             let testData = "# This is a single in-line comment starting with #"
             match testData with
-            | InlineComment (comment,rest) -> comment |> should equal (Ast.Comment " This is a single in-line comment starting with #")
+            | AsCharList(InlineComment (comment,rest)) -> comment |> should equal (Ast.Comment " This is a single in-line comment starting with #")
             | _ -> Assert.Fail()
         [<Test>]
         let ``Can parse single in-line comment with multiple lines`` () = 
             let testData = """// This is a single in-line comment
 This is something else"""
             match testData with
-            | InlineComment (comment,rest) -> comment |> should equal (Ast.Comment " This is a single in-line comment");rest |> should equal "\r\nThis is something else"
+            | AsCharList(InlineComment (comment,rest)) -> comment |> should equal (Ast.Comment " This is a single in-line comment");rest |> should equal "\r\nThis is something else"
             | _ -> Assert.Fail()
 
         [<Test>]
@@ -30,7 +30,7 @@ This is something else"""
             let testData = """/* This is a
 multi-line block style
 comment */"""
-            match testData with
+            match asCharList testData with
             | BlockComment (comment,rest) ->
                 match comment with
                 | Ast.CommentBlock (comment) -> comment |> should equal (" This is a\r\nmulti-line block style\r\ncomment ")
@@ -41,133 +41,133 @@ comment */"""
             let testdata = """/**
  * This is a sample doc comment
  */"""
-            match testdata with
+            match asCharList testdata with
             | DocComment (comment,_) -> comment |> should equal (Ast.DocComment("\r\n * This is a sample doc comment\r\n "))
             | _ -> Assert.Fail()
     module ``Identifiers`` =
         [<Test>]
         let ``Can parse a standard alpha-numeric identifier`` () =
             let testData = "someIdentifier"
-            match testData with
+            match asCharList testData with
             | Identifier (ident,_) -> ident |> should equal (Ast.Identifier "someIdentifier")
             | _ -> Assert.Fail()
 
         [<Test>]
         let ``Can parse identifier starting with an underscore`` () =
             let testData = "_someIdentifier"
-            match testData with
+            match asCharList testData with
             | Identifier (ident,_) -> ident |> should equal (Ast.Identifier "_someIdentifier")
             | _ -> Assert.Fail()
 
         [<Test>]
         let ``Identifiers can contain dashes`` () =
             let testData = "some-identifier"
-            match testData with
+            match asCharList testData with
             | Identifier (ident,_) -> ident |> should equal (Ast.Identifier "some-identifier")
             | _ -> Assert.Fail()
 
         [<Test>]
         let ``Identifiers can contain dots`` () =
             let testData = "some.identifier"
-            match testData with
+            match asCharList testData with
             | Identifier (ident,_) -> ident |> should equal (Ast.Identifier "some.identifier")
             | _ -> Assert.Fail()
 
         [<Test>]
         let ``Identifiers can contain underscores`` () =
             let testData = "some_identifier"
-            match testData with
+            match asCharList testData with
             | Identifier (ident,_) -> ident |> should equal (Ast.Identifier "some_identifier")
             | _ -> Assert.Fail()
 
         [<Test>]
         let ``Identifiers can contain letters, numbers, dashes, underscores, and dots`` () = 
             let testData = "_some-big-Identifier.WithALittle-Bit.Of.Everything42"
-            match testData with
+            match asCharList testData with
             | Identifier (ident,_) -> ident |> should equal (Ast.Identifier "_some-big-Identifier.WithALittle-Bit.Of.Everything42")
             | _ -> Assert.Fail()
     module ``Literals`` = 
         [<Test>]
         let ``StringLiteral can be delimited by double-quotes`` () =
             let testData = "\"Some Literal\""
-            match testData with
+            match asCharList testData with
             | StringLiteral (literal,_) -> literal |> should equal (Ast.StringLiteral "Some Literal")
             | _ -> Assert.Fail()    
 
         [<Test>]
         let ``StringLiteral can be delimited by sing-quotes`` () = 
             let testData = "'Some Literal'"
-            match testData with
+            match asCharList testData with
             | StringLiteral (literal,_) -> literal |> should equal (Ast.StringLiteral "Some Literal")
             | _ -> Assert.Fail()
 
         [<Test>]
         let ``StringLiteral delimited by double quotes may contain single quotes`` () =
             let testData = "\"This test mustn't fail\""
-            match testData with
+            match asCharList testData with
             | StringLiteral (literal,_) -> literal |> should equal (Ast.StringLiteral "This test mustn't fail")
             | _ -> Assert.Fail()
 
         [<Test>]
         let ``StringLiteral delimited by single quotes may countain double quotes`` () =
             let testData = "'This is \"The real deal\"'"
-            match testData with
+            match asCharList testData with
             | StringLiteral (literal,_) -> literal |> should equal (Ast.StringLiteral "This is \"The real deal\"")
             | _ -> Assert.Fail()
     module ``Includes`` =
         [<Test>]
         let ``Include is indicated by the use of the keyword "import"`` () =
             let testData = "import \"Something.thrift\""
-            match testData with 
+            match asCharList testData with 
             | ThriftInclude (inc,_) -> inc |> should equal (Ast.Include(Ast.StringLiteral "Something.thrift"))
             | _ -> Assert.Fail()
     module ``Namespace`` =        
         [<Test>]
         let ``Namespaces can be defined with global scope using *`` () = 
             let testData = "namespace * com.test.testing"
-            match testData with
+            match asCharList testData with
             | ThriftNamespace (nSpace,_) -> nSpace |> should equal (Ast.Namespace(Ast.NamespaceScope.Any,Ast.Identifier "com.test.testing"))
             | _ -> Assert.Fail()
         [<Test>]
         let ``Namespace can be defined for C++ scope using 'cpp'`` () =
             let testData = "namespace cpp testing_this_thing"
-            match testData with
+            match asCharList testData with
             | ThriftNamespace (nSpace,_) -> nSpace |> should equal (Ast.Namespace(Ast.NamespaceScope.Cpp,Ast.Identifier "testing_this_thing"))
             | _ -> Assert.Fail()
         [<Test>]
         let ``Namespace can be defined for Java scope using 'java'`` () =
             let testData = "namespace java com.testing.this.thing"
-            match testData with
+            match asCharList testData with
             | ThriftNamespace (nSpace,_) -> nSpace |> should equal (Ast.Namespace(Ast.NamespaceScope.Java,Ast.Identifier "com.testing.this.thing"))
             | _ -> Assert.Fail()
         [<Test>]
         let ``Namespace can be defined for Python scope using 'py'`` () =
             let testData = "namespace py some_py"
-            match testData with
+            match asCharList testData with
             | ThriftNamespace (nSpace,_) -> nSpace |> should equal (Ast.Namespace(Ast.NamespaceScope.Py,Ast.Identifier "some_py"))
             | _ -> Assert.Fail()
         [<Test>]
         let ``Namespace can be defined for Perl scope using 'perl'`` () = 
             let testData = "namespace perl why_even_try"
-            match testData with
+            match asCharList testData with
             | ThriftNamespace (nSpace,_) -> nSpace |> should equal (Ast.Namespace(Ast.NamespaceScope.Perl,Ast.Identifier "why_even_try"))
             | _ -> Assert.Fail()
         [<Test>]
         let ``Namespace can be defined for Ruby scope using 'rb'`` () =
             let testData = "namespace rb ruby.thing"
-            match testData with
+            match asCharList testData with
             | ThriftNamespace (nSpace,_) -> nSpace |> should equal (Ast.Namespace(Ast.NamespaceScope.Rb,Ast.Identifier "ruby.thing"))
             | _ -> Assert.Fail()
         [<Test>]
         let ``Namespace can be defined for Cocoa scope using 'cocoa'`` () =
             let testData = "namespace cocoa im_on_a_mac"
-            match testData with
+            match asCharList testData with
             | ThriftNamespace (nSpace,_) -> nSpace |> should equal (Ast.Namespace(Ast.NamespaceScope.Cocoa,Ast.Identifier "im_on_a_mac"))
             | _ -> Assert.Fail()
         [<Test>]
         let ``Namespace can be defined for CSharp scope using 'csharp'`` () =
             let testData = "namespace csharp MyNamespace.Net"
-            match testData with
+            match asCharList testData with
             | ThriftNamespace (nSpace,_) -> nSpace |> should equal (Ast.Namespace(Ast.NamespaceScope.CSharp,Ast.Identifier "MyNamespace.Net"))
             | _ -> Assert.Fail()
         // These were in the sample, but not the IDL definition
@@ -175,56 +175,56 @@ comment */"""
         [<Test>]
         let ``Namespace can be defined for C_Glib scope using 'c_glib'`` () =
             let testData = "namespace c_glib MyNamespace.Net"
-            match testData with
+            match asCharList testData with
             | ThriftNamespace (nSpace,_) -> nSpace |> should equal (Ast.Namespace(Ast.NamespaceScope.C_Glib,Ast.Identifier "MyNamespace.Net"))
             | _ -> Assert.Fail()
         // py.twisted
         [<Test>]
         let ``Namespace can be defined for Py_Twisted scope using 'py.twisted'`` () =
             let testData = "namespace py.twisted MyNamespace.Net"
-            match testData with
+            match asCharList testData with
             | ThriftNamespace (nSpace,_) -> nSpace |> should equal (Ast.Namespace(Ast.NamespaceScope.Py_Twisted,Ast.Identifier "MyNamespace.Net"))
             | _ -> Assert.Fail()
         // go
         [<Test>]
         let ``Namespace can be defined for Go scope using 'go'`` () =
             let testData = "namespace go MyNamespace.Net"
-            match testData with
+            match asCharList testData with
             | ThriftNamespace (nSpace,_) -> nSpace |> should equal (Ast.Namespace(Ast.NamespaceScope.Go,Ast.Identifier "MyNamespace.Net"))
             | _ -> Assert.Fail()
         // delphi
         [<Test>]
         let ``Namespace can be defined for Delphi scope using 'delphi'`` () =
             let testData = "namespace delphi MyNamespace.Net"
-            match testData with
+            match asCharList testData with
             | ThriftNamespace (nSpace,_) -> nSpace |> should equal (Ast.Namespace(Ast.NamespaceScope.Delphi,Ast.Identifier "MyNamespace.Net"))
             | _ -> Assert.Fail()
         // js
         [<Test>]
         let ``Namespace can be defined for Javascript scope using 'js'`` () =
             let testData = "namespace js MyNamespace.Net"
-            match testData with
+            match asCharList testData with
             | ThriftNamespace (nSpace,_) -> nSpace |> should equal (Ast.Namespace(Ast.NamespaceScope.Javascript,Ast.Identifier "MyNamespace.Net"))
             | _ -> Assert.Fail()
         // st
         [<Test>]
         let ``Namespace can be defined for Smalltalk scope using 'st'`` () =
             let testData = "namespace st MyNamespace.Net"
-            match testData with
+            match asCharList testData with
             | ThriftNamespace (nSpace,_) -> nSpace |> should equal (Ast.Namespace(Ast.NamespaceScope.Smalltalk,Ast.Identifier "MyNamespace.Net"))
             | _ -> Assert.Fail()
         // Others should compile with warnings
         [<Test>]
         let ``Namespace can be defined for Other scope using a non-registered designator`` () =
             let testData = "namespace someother MyNamespace.Net"
-            match testData with
+            match asCharList testData with
             | ThriftNamespace (nSpace,_) -> nSpace |> should equal (Ast.Namespace(Ast.NamespaceScope.Other("someother"),Ast.Identifier "MyNamespace.Net"))
             | _ -> Assert.Fail()
     module ``Header`` =         
         [<Test>]
         let ``Header can contain just an include`` () = 
             let testData = """import "somefile.thrift" """
-            match testData with
+            match asCharList testData with
             | ThriftHeader (header,_) -> header |> should equal [(Ast.IncludeHeader(Ast.Include(Ast.StringLiteral "somefile.thrift")))]
             | _ -> Assert.Fail()
         
@@ -232,7 +232,7 @@ comment */"""
         let ``Header can contain multiple includes`` () = 
             let testData = """import "somefile.thrift" 
                               import "someotherfile.thrift" """
-            match testData with
+            match asCharList testData with
             | ThriftHeader (header,_) -> header |> should equal [(Ast.IncludeHeader(Ast.Include(Ast.StringLiteral "somefile.thrift")));
                                                                (Ast.IncludeHeader(Ast.Include(Ast.StringLiteral "someotherfile.thrift")))]
             | _ -> Assert.Fail()
@@ -240,7 +240,7 @@ comment */"""
         [<Test>]
         let ``Header can contain just a namespace`` () = 
             let testData = "namespace csharp SomeNamespace.Net"
-            match testData with
+            match asCharList testData with
             | ThriftHeader (header,_) -> header |> should equal [(Ast.NamespaceHeader(Ast.Namespace(Ast.NamespaceScope.CSharp,Ast.Identifier "SomeNamespace.Net")))]
             | _ -> Assert.Fail()
 
@@ -248,7 +248,7 @@ comment */"""
         let ``Header can contain multiple Namespaces`` () = 
             let testData = """namespace csharp SomeNamespace.Net
                               namespace java org.java.something"""
-            match testData with
+            match asCharList testData with
             | ThriftHeader (header,_) -> header |> should equal [(Ast.NamespaceHeader(Ast.Namespace(Ast.NamespaceScope.CSharp,Ast.Identifier "SomeNamespace.Net")))
                                                                  (Ast.NamespaceHeader(Ast.Namespace(Ast.NamespaceScope.Java,Ast.Identifier "org.java.something")))]
             | _ -> Assert.Fail()
@@ -261,7 +261,7 @@ comment */"""
                               namespace csharp SomeNamespace.Net
                               namespace java org.java.something"""
 
-            match testData with
+            match asCharList testData with
             | ThriftHeader (header,_) -> header |> should equal [(Ast.IncludeHeader(Ast.Include(Ast.StringLiteral "somefile.thrift")))
                                                                  (Ast.IncludeHeader(Ast.Include(Ast.StringLiteral "anotherfile.thrift")))
                                                                  
@@ -273,88 +273,88 @@ comment */"""
             [<Test>]
             let ``Can parse a bool base type`` () =
                 let testdata = "bool"
-                match testdata with
+                match asCharList testdata with
                 | BaseType (baseType,_) -> baseType |> should equal Ast.BaseType.Bool
                 | _ -> Assert.Fail()
             
             [<Test>]
             let ``Can parse a byte base type`` () = 
                 let testdata = "byte"
-                match testdata with
+                match asCharList testdata with
                 | BaseType (baseType,_) -> baseType |> should equal Ast.BaseType.Byte
                 | _ -> Assert.Fail()
 
             [<Test>]
             let ``Can parse a int16 base type`` () = 
                 let testdata = "i16"
-                match testdata with
+                match asCharList testdata with
                 | BaseType (baseType,_) -> baseType |> should equal Ast.BaseType.I16
                 | _ -> Assert.Fail()
 
             [<Test>]
             let ``Can parse a int32 base type`` () = 
                 let testdata = "i32"
-                match testdata with
+                match asCharList testdata with
                 | BaseType (baseType,_) -> baseType |> should equal Ast.BaseType.I32
                 | _ -> Assert.Fail()
 
             [<Test>]
             let ``Can parse a int32 base type using 'int'`` () = 
                 let testdata = "int"
-                match testdata with
+                match asCharList testdata with
                 | BaseType (baseType,_) -> baseType |> should equal Ast.BaseType.I32
                 | _ -> Assert.Fail()
 
             [<Test>]
             let ``Can parse a int64 base type`` () = 
                 let testdata = "i64"
-                match testdata with
+                match asCharList testdata with
                 | BaseType (baseType,_) -> baseType |> should equal Ast.BaseType.I64
                 | _ -> Assert.Fail()
 
             [<Test>]
             let ``Can parse a double base type`` () = 
                 let testdata = "double"
-                match testdata with
+                match asCharList testdata with
                 | BaseType (baseType,_) -> baseType |> should equal Ast.BaseType.Double
                 | _ -> Assert.Fail()
 
             [<Test>]
             let ``Can parse a string base type`` () = 
                 let testdata = "string"
-                match testdata with
+                match asCharList testdata with
                 | BaseType (baseType,_) -> baseType |> should equal Ast.BaseType.String
                 | _ -> Assert.Fail()
 
             [<Test>]
             let ``Can parse a binary base type`` () = 
                 let testdata = "binary"
-                match testdata with
+                match asCharList testdata with
                 | BaseType (baseType,_) -> baseType |> should equal Ast.BaseType.Binary
                 | _ -> Assert.Fail()
         module ``Container Types`` = 
             [<Test>]
             let ``Can parse a list type`` () =
                 let testdata = "list< i32 >"
-                match testdata with
+                match asCharList testdata with
                 | ContainerType (ctype,_) -> ctype |> should equal (Ast.ContainerType.List(Ast.FieldType.BaseField(Ast.BaseType.I32)))
                 | _ -> failwith "Expecting List(BaseField(I32))"
             [<Test>]
             let ``Can parse a set type`` () =
                 let testdata = "set<i32>"
-                match testdata with
+                match asCharList testdata with
                 | ContainerType (ctype,_) -> ctype |> should equal (Ast.ContainerType.Set(Ast.FieldType.BaseField(Ast.BaseType.I32)))
                 | _ -> failwith "Expecting Set(BaseField(I32))"
             [<Test>]
             let ``Can parse a map type`` () =
                 let testdata = "map<string, i32>"
-                match testdata with
+                match asCharList testdata with
                 | ContainerType (ctype,_) -> ctype |> should equal (Ast.ContainerType.Map(Ast.FieldType.BaseField(Ast.BaseType.String),Ast.FieldType.BaseField(Ast.BaseType.I32)))
                 | _ -> failwith "Expecting Map(BaseField(String),BaseField(I32))"
             [<Test>]
             let ``Can parse nested container type`` () = 
                 let testdata = "list<map<i32,set<map<string,list<i32>>>>>"
-                match testdata with
+                match asCharList testdata with
                 | ContainerType (ctype,_) -> ctype |> should equal (Ast.ContainerType.List(
                                                                         Ast.ContainerField(
                                                                             Ast.Map(
@@ -380,31 +380,31 @@ comment */"""
         module ``Definition Types`` = 
             [<Test>]
             let ``Can parse a definition type based on a BaseType`` () = 
-                match "i32" with
+                match asCharList "i32" with
                 | DefinitionType (dtype,_) -> dtype |> should equal (Ast.DefinitionType.BaseDefinition(Ast.BaseType.I32))
                 | _ -> failwith "Expecting DefinitionType(BaseField(String),BaseField(I32))"
             [<Test>]
             let ``Can parse a definition type based on a ContainerType`` () = 
                 let testdata = "list<i32>"
-                match testdata with
+                match asCharList testdata with
                 | DefinitionType(dtype,_) -> dtype |> should equal (Ast.DefinitionType.ContainerDefinition(Ast.ContainerType.List(Ast.FieldType.BaseField(Ast.BaseType.I32))))
                 | _ -> failwith "Expecting DefinitionType(ContainerDefinition(Set(BaseField(I32))))"
         module ``Field Types`` = 
             [<Test>]
             let ``Can parse an Identifier as a FieldType`` () = 
                 let testdata = "MyIdentifier"
-                match testdata with
+                match asCharList testdata with
                 | FieldType(ftype,_) -> ftype |> should equal (Ast.FieldType.IdentifierField(Ast.Identifier("MyIdentifier")))
                 | _ -> failwith "Expecting FieldType(Identifier(\"MyIdentifier\"))"
             [<Test>]
             let ``Can parse a BaseType as a FieldType`` () = 
-                match "string" with
+                match asCharList "string" with
                 | FieldType(ftype,_) -> ftype |> should equal (Ast.FieldType.BaseField(Ast.BaseType.String))
                 | _ -> failwith "Expecting FieldType(BaseType.String)"
             [<Test>]
             let ``Can parse a ContainerType as a FieldType`` () = 
                 let testdata = "map<string,string>"
-                match testdata with
+                match asCharList testdata with
                 | FieldType(ftype,_) -> ftype |> should equal (Ast.FieldType.ContainerField(Ast.ContainerType.Map(Ast.FieldType.BaseField(Ast.BaseType.String),Ast.FieldType.BaseField(Ast.BaseType.String))))
                 | _ -> failwith "Expecting FieldType(ContainerType.Map(FieldType(BaseType.String),FieldType(BaseType.String)))"
     module ``Definitions`` =
@@ -412,31 +412,31 @@ comment */"""
             [<Test>]
             let ``Can parse Constant with string literal value`` () = 
                 let testdata = "const string MY_STRING = \"mystringliteral\""
-                match testdata with
+                match asCharList testdata with
                 | Constant (constant,_) -> constant |> should equal (Ast.ConstDefinition(Ast.Const(Ast.BaseField(Ast.BaseType.String),Ast.Identifier("MY_STRING"),Ast.ConstantValue.LiteralConstant(Ast.StringLiteral("mystringliteral")))))
                 | _ -> failwith "Expecting ConstDefinition(BaseField(BaseTpe.String),Identifier(\"MY_STRING\"),ConstantValue.LiteralConstant(\"mystringliteral\"))"
             [<Test>]
             let ``Can parse Constant with integer literal value`` () = 
                 let testdata = "const i32 MY_INT32 = 12345"
-                match testdata with
+                match asCharList testdata with
                 | Constant (constant,_) -> constant |> should equal (Ast.ConstDefinition(Ast.Const(Ast.BaseField(Ast.BaseType.I32),Ast.Identifier("MY_INT32"),Ast.ConstantValue.IntConstant(12345))))
                 | _ -> failwith "Expecting ConstDefinition(BaseField(BaseType.I32),Identifier(\"MY_INT32\"),ConstantValue.IntConstant(12345))"
             [<Test>]
             let ``Can parse Constant with negative integer literal value`` () = 
                 let testdata = "const i32 MY_NEG_INT32 = -12345"
-                match testdata with
+                match asCharList testdata with
                 | Constant(constant,_) -> constant |> should equal (Ast.ConstDefinition(Ast.Const(Ast.BaseField(Ast.BaseType.I32),Ast.Identifier("MY_NEG_INT32"),Ast.ConstantValue.IntConstant(-12345))))
                 | _ -> failwith "Expecting ConstDefinition(BaseField(BaseType.I32),Identifier(\"MY_NEG_INT32\"),ConstantValue.IntConstant(-12345))"
             [<Test>]
             let ``Can parse Constant with double literal value`` () = 
                 let testdata = "const double MY_DOUBLE = 123.45"
-                match testdata with
+                match asCharList testdata with
                 | Constant (constant,_) -> constant |> should equal (Ast.ConstDefinition(Ast.Const(Ast.BaseField(Ast.BaseType.Double),Ast.Identifier("MY_DOUBLE"),Ast.ConstantValue.DoubleConstant(123.45))))
                 | _ -> failwith "Expecting ConstDefinition(BaseField(BaseType.Double),Identifier(\"MY_DOUBLE\"),ConstantValue.DoubleConstant(123.45))"
             [<Test>]
             let ``Can parse Constant with literal List value`` () =
                 let testdata = "const list<i32> MY_LIST = [1,2,3,4,5]"
-                match testdata with
+                match asCharList testdata with
                 | Constant (constant,_) -> constant |> should equal (Ast.ConstDefinition(Ast.Const(Ast.ContainerField(Ast.List(Ast.BaseField(Ast.I32))),
                                                                                                    Ast.Identifier("MY_LIST"),
                                                                                                    Ast.ConstantValue.ListConstant([Ast.ConstantValue.IntConstant(1);
@@ -448,7 +448,7 @@ comment */"""
             [<Test>]
             let ``Can parse Constant with literal Map value`` () = 
                 let testdata = "const map<string,i32> MY_MAP = {\"one\":1;\"two\":2;\"three\":3}"
-                match testdata with
+                match asCharList testdata with
                 | Constant (constant,_) -> constant |> should equal (Ast.ConstDefinition(Ast.Const(Ast.ContainerField(Ast.Map(Ast.BaseField(Ast.String),Ast.BaseField(Ast.I32))),
                                                                                                    Ast.Identifier("MY_MAP"),
                                                                                                    Ast.ConstantValue.MapConstant([(Ast.ConstantValue.LiteralConstant(Ast.StringLiteral("one")),Ast.ConstantValue.IntConstant(1))
@@ -460,7 +460,7 @@ comment */"""
             [<Test>]
             let ``Can parse a type definition`` () =
                 let testData = "typedef i32 MyInteger"
-                match testData with
+                match asCharList testData with
                 | TypeDef (def,_) -> def |> should equal (Ast.TypeDef(Ast.BaseDefinition(Ast.BaseType.I32),Ast.Identifier("MyInteger")))
                 | _ -> Assert.Fail()
         module ``enum`` = 
@@ -470,7 +470,7 @@ comment */"""
                     FIRST,
                     SECOND,
                     THIRD }"""
-                match testdata with
+                match asCharList testdata with
                 | Enum (enum,_) -> enum |> should equal (Ast.EnumDefinition(Ast.Enum(Ast.Identifier("MyEnum"),[(0,Ast.Identifier("FIRST"));(1,Ast.Identifier("SECOND"));(2,Ast.Identifier("THIRD"))])))
                 | _ -> failwith "Expecting EnumDefinition(Enum(Identifier(\"MyEnum\"),[(0,Identifier(\"FIRST\"));(1,Identifier(\"SECOND\"));(2,Identifier(\"THIRD\"))]))"
             [<Test>]
@@ -479,7 +479,7 @@ comment */"""
                     FIRST = 1,
                     SECOND = 2,
                     THIRD = 4 }"""
-                match testdata with
+                match asCharList testdata with
                 | Enum (enum,_) -> enum |> should equal (Ast.EnumDefinition(Ast.Enum(Ast.Identifier("MyEnum"),[(1,Ast.Identifier("FIRST"));(2,Ast.Identifier("SECOND"));(4,Ast.Identifier("THIRD"))])))
                 | _ -> failwith "Expecting EnumDefinition(Enum(Identifier(\"MyEnum\"),[(1,Identifier(\"FIRST\"));(2,Identifier(\"SECOND\"));(4,Identifier(\"THIRD\"))]))"
         module ``struct`` = 
@@ -490,7 +490,7 @@ comment */"""
                     2: i32 num2,
                     3: Operation op,
                     4: string comment }"""
-                match testdata with
+                match asCharList testdata with
                 | Struct (strct,_) -> 
                     printf "%A" strct
                     strct |> should equal (Ast.StructDefinition(Ast.Struct(Ast.Identifier("Work"),
@@ -507,7 +507,7 @@ comment */"""
                     2: i32 num2,
                     3: Operation op,
                     4: optional string comment }"""
-                match testdata with
+                match asCharList testdata with
                 | Struct (strct,_) ->
                     strct |> should equal (Ast.StructDefinition(Ast.Struct(Ast.Identifier("Work"),
                                                                           [Ast.NumberedField(1,Ast.Field(Ast.BaseField(Ast.I32),Ast.Identifier("num"),None))
@@ -523,7 +523,7 @@ comment */"""
                     2: i32 num2,
                     3: Operation op,
                     4: required string comment }"""
-                match testdata with
+                match asCharList testdata with
                 | Struct (strct,_) ->
                     strct |> should equal (Ast.StructDefinition(Ast.Struct(Ast.Identifier("Work"),
                                                                           [Ast.NumberedField(1,Ast.Field(Ast.BaseField(Ast.I32),Ast.Identifier("num"),None))
@@ -540,7 +540,7 @@ comment */"""
                     i32 num2,
                     Operation op,
                     string comment }"""
-                match testdata with
+                match asCharList testdata with
                 | Struct (strct,_) ->
                     strct |> should equal (Ast.StructDefinition(Ast.Struct(Ast.Identifier("Work"),
                                                                           [Ast.Field(Ast.BaseField(Ast.I32),Ast.Identifier("num"),None)
@@ -556,7 +556,7 @@ comment */"""
                     i32 num2,
                     Operation op,
                     string comment }"""
-                match testdata with
+                match asCharList testdata with
                 | Struct (strct,_) ->
                     strct |> should equal (Ast.StructDefinition(Ast.Struct(Ast.Identifier("Work"),
                                                                           [Ast.Field(Ast.BaseField(Ast.I32),Ast.Identifier("num"),Some (Ast.IntConstant(0)))
@@ -573,7 +573,7 @@ comment */"""
                     2: i32 num2,
                     3: Operation op,
                     4: string comment }"""
-                match testdata with
+                match asCharList testdata with
                 | Exception (excep,_) ->
                     excep |> should equal (Ast.ExceptionDefinition(Ast.Exception(Ast.Identifier("WorkException"),
                                                                                  [Ast.NumberedField(1,Ast.Field(Ast.BaseField(Ast.I32),Ast.Identifier("num"),None))
@@ -591,7 +591,7 @@ comment */"""
                     1: i32 intVal
                     2: string stringVal
                     3: Operation operationVal }"""
-                match testdata with
+                match asCharList testdata with
                 | Union (union,_) ->
                     union |> should equal (Ast.UnionDefinition(Ast.Union(Ast.Identifier("WorkUnion"),
                                                                          [Ast.NumberedField(1,Ast.Field(Ast.BaseField(Ast.I32),Ast.Identifier("intVal"),None))
@@ -609,7 +609,7 @@ comment */"""
                                     i32 add(1:i32 num1,2:i32 num2)
                                   }
                                """
-                match testdata with
+                match asCharList testdata with
                 | Service (service,_) -> 
                     service |> should equal (Ast.ServiceDefinition(Ast.Service(Ast.Identifier("MyService"),
                                                                                [Ast.VoidFunction(Ast.Identifier("ping"),[],[]);
@@ -626,7 +626,7 @@ comment */"""
                                       i32 add(1:i32 num1;2:i32 num2)
                                   }
                                """
-                match testdata with
+                match asCharList testdata with
                 | Service (service,_) ->
                     service |> should equal (Ast.ServiceDefinition(Ast.Service(Ast.Identifier("MyService"),
                                                                                [Ast.VoidFunction(Ast.Identifier("ping"),[],[]);
@@ -643,7 +643,7 @@ comment */"""
                                       i32 add(1:i32 num1;2:i32 num2)
                                   }
                                """
-                match testdata with
+                match asCharList testdata with
                 | Service (service,_) ->
                     service |> should equal (Ast.ServiceDefinition(Ast.Service(Ast.Identifier("MyService"),
                                                                                [Ast.VoidFunction(Ast.Identifier("ping"),[],[Ast.NumberedField(1,Ast.Field(Ast.IdentifierField(Ast.Identifier("SomeException")),Ast.Identifier("err1"),None));
@@ -667,7 +667,7 @@ comment */"""
                                      */
                                     i32 add(1:i32 num1;2:i32 num2)
                                 }"""
-                match testdata with
+                match asCharList testdata with
                 | Service(service,_) ->
                     service |> should equal (Ast.ServiceDefinition(Ast.Service(Ast.Identifier("MyService"),
                                                                                [Ast.VoidFunction(Ast.Identifier("ping"),[],[]);
@@ -682,7 +682,7 @@ comment */"""
                 let testdata = """service MyAsyncService {
                                     oneway void ping() 
                                   }"""
-                match testdata with
+                match asCharList testdata with
                 | Service (service,_) ->
                     service |> should equal (Ast.ServiceDefinition(Ast.Service(Ast.Identifier("MyAsyncService"),
                                                                                [Ast.OnewayFunction(Ast.VoidFunction(Ast.Identifier("ping"),[],[]))],None)))

@@ -47,11 +47,6 @@ let (|StartsWith|_|) prefix (input:char list) =
         | _ -> None
     loop (prefix,input)
 
-//let (|StringStartsWith|_|) prefix input = 
-//    match (asCharList input) with
-//    | StartsWith prefix (rest)-> Some rest
-//    | _ -> None
-
 let (|Value|_|) (v:string) (input:char list) = 
     match input with
     | StartsWith (asCharList v) (rest) -> Some (rest)
@@ -61,12 +56,8 @@ let (|StartsWithAny|_|) prefix = function
     | r::rest when prefix |> List.exists ((=) r) -> (Some (r,rest))
     | _ -> None
 
-//let (|StringStartsWithAny|_|) prefix (input:string) = 
-//    match asCharList input with
-//    | StartsWithAny prefix (p,rest) -> Some (p,rest)
-//    | _ -> None
 
-let (|ListSeparator|_|) (input:char list) = 
+let (|ListSeparator|_|) input = 
     match input with
     | StartsWithAny [',';';'] (_,rest) -> Some (rest)
     | _ -> None
@@ -77,7 +68,7 @@ let (|EOL|_|) = function
     | StartsWith ['\n'] (input) -> Some input
     | _ -> None
 
-let rec private parseBracketedBody opening closing acc (input:char list) nestingLevel = 
+let rec private parseBracketedBody opening closing acc input nestingLevel = 
     match input with
     | StartsWith ['/';'/'] (rest)
     | StartsWith ['#'] (rest) ->
@@ -112,12 +103,7 @@ let (|Delimited|_|) delim = parseBracketed delim delim
 
 let (|Bracketed|_|) ``begin`` ``end`` = parseBracketed ``begin`` ``end``
 
-let (|Word|_|) (input:char list) = 
-    match input with
-    | Delimited [' '] (word,rest) -> Some (word,rest)
-    | _ -> None
-
-let (|InlineComment|_|) (input:char list) =
+let (|InlineComment|_|) input =
     let rec getComment chars comment = 
         match chars with
         | [] -> (Ast.Comment(comment |> List.rev |> toString),[])
@@ -129,7 +115,7 @@ let (|InlineComment|_|) (input:char list) =
     | StartsWith ['#'] (rest) -> Some (getComment rest [])
     |  _ -> None
 
-let (|BlockComment|_|) (input:char list) =
+let (|BlockComment|_|) input =
     let rec getComment chars comment = 
         match chars with
         | [] -> (Ast.CommentBlock(comment |> List.rev |> toString),[])
@@ -139,7 +125,7 @@ let (|BlockComment|_|) (input:char list) =
     | StartsWith ['/';'*'] (rest) -> Some <| getComment rest []
     | _ -> None
 
-let (|DocComment|_|) (input:char list) =
+let (|DocComment|_|) input =
     let rec getComment chars comment = 
         match chars with
         | [] -> (Ast.DocComment(comment |> List.rev |> toString),[])
@@ -149,7 +135,7 @@ let (|DocComment|_|) (input:char list) =
     | StartsWith ['/';'*';'*'] (rest) -> Some <| (getComment rest [])
     | _ -> None
 
-let rec (|WS|_|) (input:char list) = 
+let rec (|WS|_|) input = 
     match input with
     | StartsWith [' '] (WS input)
     | StartsWith ['\t'] (WS input)
@@ -164,7 +150,7 @@ let letters = ['A'..'Z'] @ ['a'..'z']
 let numbers = ['0'..'9']
 let hexnumbers = ['0'..'9'] @ ['a'..'f'] @ ['A'..'F']
 
-let (|Identifier|_|) (input:char list) = 
+let (|Identifier|_|) input = 
     match input with
     | StartsWithAny ('_'::letters) (p,rest) ->
         let idetifierChars = letters@numbers@['_';'-';'.']
@@ -196,7 +182,7 @@ let (|ThriftInclude|_|) input =
         | _ -> failwith "Invalid include definition"
     | _ -> None
 
-let namespaceScope (input:char list) = 
+let namespaceScope input = 
     match input with
     | WS (StartsWith ['*']                     (WS (Identifier (ident,rest)))) -> Some(Ast.Namespace(Ast.NamespaceScope.Any,ident),rest)
     | WS (StartsWith (asCharList "cpp")        (WS (Identifier (ident,rest)))) -> Some(Ast.Namespace(Ast.NamespaceScope.Cpp,ident),rest)
@@ -322,7 +308,7 @@ let (|NumberConstant|_|) input =
         getConstantValue (rest) [p]
     | _ -> None
 
-let rec (|ConstList|_|) (input:char list) = 
+let rec (|ConstList|_|) input = 
     match input with
     | WS (Bracketed ['['] [']'] (vals,rest)) ->
         let rec getConstStringValue input values = 
@@ -343,7 +329,7 @@ let rec (|ConstList|_|) (input:char list) =
         let values = getConstMapValue vals []
         Some (Ast.ConstantValue.MapConstant(values),rest)
     | _ -> None
-and (|ConstValue|_|) (input:char list) = 
+and (|ConstValue|_|) input = 
     match input with
         | WS (BoolLiteral(bliteral,rest)) -> Some <| (Ast.ConstantValue.LiteralConstant(bliteral),rest)
         | WS (StringLiteral(sliteral,rest)) -> Some <| (Ast.ConstantValue.LiteralConstant(sliteral),rest)
@@ -351,7 +337,7 @@ and (|ConstValue|_|) (input:char list) =
         | WS (Identifier(ident,rest)) -> Some <| (Ast.ConstantValue.IdentConstant(ident),rest)
         | WS (ConstList(clist,rest)) -> Some <| (clist,rest)
         | _ -> None
-let (|Constant|_|) (input:char list) = 
+let (|Constant|_|) input = 
     match input with
     | WS (StartsWith (asCharList "const") (WS (FieldType(ftype,WS (Identifier(ident,WS ( Value "=" (WS (ConstValue(cval,ListSeparator(rest))))))))))) -> Some <| (Ast.ConstDefinition(Ast.Const(ftype,ident,cval)),rest)
     | WS (StartsWith (asCharList "const") (WS (FieldType(ftype,WS (Identifier(ident,WS ( Value "=" (WS (ConstValue(cval,rest)))))))))) -> Some <| (Ast.ConstDefinition(Ast.Const(ftype,ident,cval)),rest)        
@@ -370,7 +356,7 @@ let (|BracketedDefinition|_|) defIdentifier input =
         | _ -> None
     | _ -> None
 
-let (|Enum|_|) (input:char list) = 
+let (|Enum|_|) input = 
     match input with
     | WS (BracketedDefinition "enum" (ident,vals,rest)) ->
         let rec getEnumBody input values counter = 
@@ -490,7 +476,7 @@ let (|ServiceDef|_|) input =
         | _ -> None
     | _ -> None
 
-let (|Service|_|) (input:char list) = 
+let (|Service|_|) input = 
     match input with
     | ServiceDef (serviceName,parent,body,rest) ->
         let functions = getServiceBody (body |> toString) body []

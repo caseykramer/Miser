@@ -9,6 +9,12 @@ module List =
             | xs -> List.rev acc, xs
         loop []
 
+type Input = char list * int
+
+type ParseResult<'a> = 
+     | Success of result: 'a * rest:Input
+     | Failure of message: string
+
 let intParse = System.Int32.Parse
 let intParseHex num = System.Int32.Parse(num,System.Globalization.NumberStyles.HexNumber)
 
@@ -29,31 +35,31 @@ let toString chars =
 let asCharList (s:string) = 
     s.ToCharArray() |> List.ofArray 
 
+let asInput (s:string) = 
+    ((asCharList s),0)
+
 let (|AsCharList|) (str:string) = 
     List.ofSeq str
-
-let toLines (s:string) = 
-    s.Split([|'\r';'\n'|]) |> List.ofArray |> List.filter (fun s -> not(System.String.IsNullOrWhiteSpace(s)))
-
+    
 let (|EOF|) = function
     | [] -> Some()
     | _-> None
 
-let (|StartsWith|_|) prefix (input:char list) = 
+let (|StartsWith|_|) prefix (input:Input) = 
     let rec loop = function
-        | p::prefix,r::rest when p = r ->
-            loop (prefix,rest)
+        | p::prefix,(r::rest,pos) when p = r ->
+            loop (prefix,(rest,pos + 1))
         | [],rest -> Some(rest)
         | _ -> None
     loop (prefix,input)
 
-let (|Value|_|) (v:string) (input:char list) = 
+let (|Value|_|) (v:string) (input:Input) = 
     match input with
     | StartsWith (asCharList v) (rest) -> Some (rest)
     | _ -> None
 
 let (|StartsWithAny|_|) prefix = function 
-    | r::rest when prefix |> List.exists ((=) r) -> (Some (r,rest))
+    | (r::rest,pos) when prefix |> List.exists ((=) r) -> (Some (r,(rest,pos+1)))
     | _ -> None
 
 
@@ -62,7 +68,8 @@ let (|ListSeparator|_|) input =
     | StartsWithAny [',';';'] (_,rest) -> Some (rest)
     | _ -> None
 
-let (|EOL|_|) = function
+let (|EOL|_|) (input:Input) =
+    match input with
     | StartsWith ['\r';'\n'] (input) 
     | StartsWith ['\r'] (input) 
     | StartsWith ['\n'] (input) -> Some input
@@ -74,23 +81,23 @@ let rec private parseBracketedBody opening closing acc input nestingLevel =
     | StartsWith ['#'] (rest) ->
         let rec getComment chars comment = 
             match chars with
-            | [] -> (comment,[])
+            | [],pos -> (comment,([],pos))
             | EOL (rest) -> ('\n'::'\r'::comment,rest)
-            | c::chars -> getComment chars (c::comment)
+            | (c::chars,pos) -> getComment (chars,pos+1) (c::comment)
         let (comment,rest) = getComment (rest) ['/';'/']
         parseBracketedBody opening closing (comment@acc) (rest) nestingLevel
     | StartsWith ['/';'*'] (rest) ->
         let rec getComment chars comment =
             match chars with
-            | [] -> ('/'::'*'::comment,[])
+            | [],pos -> ('/'::'*'::comment,([],pos))
             | StartsWith ['*';'/'] (rest) -> ('/'::'*'::comment,rest)
-            | c::chars -> getComment chars (c::comment)
+            | (c::chars,pos) -> getComment (chars,pos+1) (c::comment)
         let (comment,rest) = getComment (rest) ['*';'/']
         parseBracketedBody opening closing (comment@acc) (rest) nestingLevel
     | StartsWith (opening) (rest) when opening <> closing -> parseBracketedBody opening closing ((opening |> List.rev)@acc) rest (nestingLevel + 1)
     | StartsWith (closing) (rest) when nestingLevel <= 0 -> Some(List.rev acc,rest)
     | StartsWith (closing) (rest) -> parseBracketedBody opening closing ((closing |> List.rev)@acc) rest (nestingLevel - 1)
-    | c::chars -> parseBracketedBody opening closing (c::acc) chars nestingLevel
+    | c::chars,pos -> parseBracketedBody opening closing (c::acc) (chars,pos+1) nestingLevel
     | _ -> None
 
 let rec parseBracketed opening closing input = 
@@ -106,9 +113,9 @@ let (|Bracketed|_|) ``begin`` ``end`` = parseBracketed ``begin`` ``end``
 let (|InlineComment|_|) input =
     let rec getComment chars comment = 
         match chars with
-        | [] -> (Ast.Comment(comment |> List.rev |> toString),[])
+        | [],pos -> (Ast.Comment(comment |> List.rev |> toString),([],pos))
         | EOL (rest) -> (Ast.Comment(comment |> List.rev |> toString),chars)
-        | c::chars -> getComment chars (c::comment)
+        | c::chars,pos -> getComment (chars,pos+1) (c::comment)
         
     match input with
     | StartsWith ['/';'/'] (rest)
@@ -118,9 +125,9 @@ let (|InlineComment|_|) input =
 let (|BlockComment|_|) input =
     let rec getComment chars comment = 
         match chars with
-        | [] -> (Ast.CommentBlock(comment |> List.rev |> toString),[])
+        | [],pos -> (Ast.CommentBlock(comment |> List.rev |> toString),([],pos))
         | StartsWith ['*';'/'] (rest) -> (Ast.CommentBlock(comment |> List.rev |> toString),rest)
-        | c::chars -> getComment chars (c::comment)
+        | c::chars,pos -> getComment (chars,pos+1) (c::comment)
     match input with
     | StartsWith ['/';'*'] (rest) -> Some <| getComment rest []
     | _ -> None
@@ -128,9 +135,9 @@ let (|BlockComment|_|) input =
 let (|DocComment|_|) input =
     let rec getComment chars comment = 
         match chars with
-        | [] -> (Ast.DocComment(comment |> List.rev |> toString),[])
+        | [],pos -> (Ast.DocComment(comment |> List.rev |> toString),([],pos))
         | StartsWith ['*';'/'] (rest) -> (Ast.DocComment(comment |> List.rev |> toString),rest)
-        | c::chars -> getComment chars (c::comment)
+        | c::chars,pos -> getComment (chars,pos+1) (c::comment)
     match input with
     | StartsWith ['/';'*';'*'] (rest) -> Some <| (getComment rest [])
     | _ -> None
@@ -154,7 +161,7 @@ let (|Identifier|_|) input =
     match input with
     | StartsWithAny ('_'::letters) (p,rest) ->
         let idetifierChars = letters@numbers@['_';'-';'.']
-        let rec getIdentifier (input:char list) (identifier:char list) = 
+        let rec getIdentifier (input:Input) (identifier:char list) = 
             match input with
             | StartsWithAny idetifierChars (p,rest) -> getIdentifier rest (p::identifier)
             | _ -> Some(Ast.Identifier (List.rev identifier |> toString),input)
@@ -207,7 +214,7 @@ let (|ThriftNamespace|_|) input =
     | WS (StartsWith (asCharList "namespace") namespaceDef) ->
         match namespaceScope namespaceDef with
         | Some (ns,rest) -> Some(ns,rest)
-        | _ -> failwith <| sprintf "Error parsing namespace at: %s" (toString input)
+        | _ -> failwith <| sprintf "Error parsing namespace at position: %i" (snd input)
     | _ -> None
 
 
@@ -239,24 +246,24 @@ let rec (|FieldType|_|) input =
     | _ -> None
 and (|ContainerType|_|) input = 
     match input with
-    | WS(StartsWith (asCharList "set") rest) ->
-        match rest with
+    | WS(StartsWith (asCharList "set") set) ->
+        match set with
         | WS(Bracketed ['<'] ['>'] (text,rest)) -> 
-            match text with
+            match (text,snd set) with
             | WS(FieldType (ftype,_)) -> Some (Ast.ContainerType.Set(ftype),rest)
             | _ -> None
         | _ -> None
-    | WS(StartsWith (asCharList "list") rest) ->
-        match rest with
+    | WS(StartsWith (asCharList "list") list) ->
+        match list with
         | WS(Bracketed ['<'] ['>'] (text,rest)) ->
-            match text with
+            match (text,snd list) with
             | WS(FieldType (ftype,_)) -> Some (Ast.ContainerType.List(ftype),rest)
             | _ -> None
         | _ -> None
-    | WS(StartsWith (asCharList "map") rest) ->
-        match rest with
+    | WS(StartsWith (asCharList "map") map) ->
+        match map with
         | WS (Bracketed ['<'] ['>'] (text,rest)) ->
-            match text with
+            match (text,snd map) with
             | WS(FieldType (ftype1,other)) ->
                 match other with
                 | WS(StartsWithAny (listSeparators) (_,remaining)) ->
@@ -313,20 +320,20 @@ let rec (|ConstList|_|) input =
     | WS (Bracketed ['['] [']'] (vals,rest)) ->
         let rec getConstStringValue input values = 
             match input with
-            | [] -> values |> List.rev
+            | [],pos -> values |> List.rev
             | ConstValue (cvalue,(WS (ListSeparator(rest)))) -> getConstStringValue rest (cvalue::values)
             | ConstValue (cvalue,rest) -> cvalue::values |> List.rev 
             | _ -> failwith "Invalid List Literal syntax: '%s'" vals
-        let values = getConstStringValue vals []
+        let values = getConstStringValue (vals,snd input) []
         Some (Ast.ConstantValue.ListConstant(values),rest)
     | WS (Bracketed ['{'] ['}'] (vals,rest)) ->
-        let rec getConstMapValue (input:char list) values = 
+        let rec getConstMapValue (input:Input) values = 
             match input with
-            | [] -> values |> List.rev |> Map.ofList
+            | [],pos -> values |> List.rev |> Map.ofList
             | ConstValue (cvalueKey,(WS (StartsWith [':'] (ConstValue (cvalueValue,(WS(ListSeparator(rest)))))))) -> getConstMapValue rest ((cvalueKey,cvalueValue)::values)
             | ConstValue (cvalueKey,(WS (StartsWith [':'] (ConstValue (cvalueValue,rest))))) -> ((cvalueKey,cvalueValue)::values) |> List.rev |> Map.ofList
             | _ -> failwith "Invalid Map Literal syntax: '%s'" vals
-        let values = getConstMapValue vals []
+        let values = getConstMapValue (vals,snd input) []
         Some (Ast.ConstantValue.MapConstant(values),rest)
     | _ -> None
 and (|ConstValue|_|) input = 
@@ -361,15 +368,15 @@ let (|Enum|_|) input =
     | WS (BracketedDefinition "enum" (ident,vals,rest)) ->
         let rec getEnumBody input values counter = 
             match input with
-            | WS ([]) -> values |> List.rev
+            | WS ([],pos) -> values |> List.rev
             | WS (Identifier (ident,WS (StartsWith ['='] (WS (Number (num,WS (ListSeparator (rest)))))))) ->
                 getEnumBody rest ((num,ident)::values) (num+1)
             | WS (Identifier (ident,WS (StartsWith ['='] (WS (Number (num,rest)))))) ->
                 getEnumBody rest ((num,ident)::values) (num+1)                    
             | WS (Identifier (ident,WS (ListSeparator (rest)))) -> getEnumBody rest ((counter,ident)::values) (counter+1)
             | WS (Identifier (ident,rest)) -> ((counter,ident)::values) |> List.rev
-            | _ -> failwithf "Invalid enum body format '%s' at '%s'" (toString vals) (toString input)
-        let values = getEnumBody vals [] 0
+            | _ -> failwithf "Invalid enum body format '%s' at position %i" (toString vals) (snd input)
+        let values = getEnumBody (vals,snd input) [] 0
         Some <| (Ast.EnumDefinition(Ast.Enum(ident,values)),rest)        
     | _ -> None
 
@@ -403,15 +410,15 @@ let (|ExtractField|_|) input =
 
 let rec private getStructBody body input fields = 
     match input with 
-    | WS ([]) -> fields |> List.rev
+    | WS ([],_) -> fields |> List.rev
     | ExtractField (field,rest) -> getStructBody body rest (field::fields)
-    | _ -> failwithf "Invalid body: '%s' at '%s'" (body) (toString input)
+    | _ -> failwithf "Invalid body: '%s' at position %i" (body) (snd input)
         
 
 let (|Struct|_|) input = 
     match input with
     | WS (BracketedDefinition "struct" (ident,body,rest)) ->
-        let fields = getStructBody (body |> toString) body []
+        let fields = getStructBody (body |> toString) (body,snd input) []
         Some <| (Ast.StructDefinition(Ast.Struct(ident,fields)),rest)
     | _ -> None
 
@@ -419,7 +426,7 @@ let (|Struct|_|) input =
 let (|Exception|_|) input =
     match input with
     | WS (BracketedDefinition "exception" (ident,body,rest)) ->
-        let fields = getStructBody (body |> toString) body []
+        let fields = getStructBody (body |> toString) (body,snd input) []
         Some <| (Ast.ExceptionDefinition(Ast.Exception(ident,fields)),rest)
     | _ -> None
 
@@ -428,7 +435,7 @@ let (|Exception|_|) input =
 let (|Union|_|) input = 
     match input with
     | WS (BracketedDefinition "union" (ident,body,rest)) ->
-        let fields = getStructBody (body |> toString) body []
+        let fields = getStructBody (body |> toString) (body,snd input) []
         Some <| (Ast.UnionDefinition(Ast.Union(ident,fields)),rest)
     | _ -> None
 
@@ -442,27 +449,27 @@ let rec (|FunctionType|_|) input =
 let (|Throws|_|) input = 
     match input with
     | WS (Value "throws" (WS (Bracketed ['('] [')'] (vals,rest)))) ->
-        let fields = getStructBody (vals |> toString) vals []
+        let fields = getStructBody (vals |> toString) (vals,snd input) []
         Some (fields,rest)
     | _ -> None
 
 let (|Function|_|) input = 
     match input with
     | FunctionType(func,WS (Identifier(fName,(WS (Bracketed ['('] [')'] (vals, WS (Throws (excepts,rest)))))))) ->
-        let parameters = getStructBody (vals |> toString) vals []
+        let parameters = getStructBody (vals |> toString) (vals,snd input) []
         Some <| (func(fName,parameters,excepts),rest)
     | FunctionType(func,WS (Identifier(fName,(WS (Bracketed ['('] [')'] (vals,rest)))))) ->
-        let parameters = getStructBody (vals |> toString) vals []
+        let parameters = getStructBody (vals |> toString) (vals,snd input) []
         Some <| (func(fName,parameters,[]),rest)
     | _ -> None
     
 
 let rec getServiceBody body input functions = 
     match input with
-    | WS([]) -> functions |> List.rev
+    | WS([],_) -> functions |> List.rev
     | WS (Function (func,WS (ListSeparator (rest)))) -> getServiceBody body rest (func::functions)
     | WS (Function (func,rest)) -> getServiceBody body rest (func::functions)
-    | _ -> failwithf "Invalid service body: '%s' at '%s'" body (toString input)
+    | _ -> failwithf "Invalid service body: '%s' at position %i" body (snd input)
 
 let (|ServiceDef|_|) input = 
     match input with
@@ -479,14 +486,14 @@ let (|ServiceDef|_|) input =
 let (|Service|_|) input = 
     match input with
     | ServiceDef (serviceName,parent,body,rest) ->
-        let functions = getServiceBody (body |> toString) body []
+        let functions = getServiceBody (body |> toString) (body,snd input) []
         Some <| (Ast.ServiceDefinition(Ast.Service(serviceName,functions,parent)),rest)
     | _ -> None
     
 let parseDocument (document:string) = 
     let rec parse input (doc:Ast.Document) = 
         match input with
-        | WS ([]) -> { doc with Headers = doc.Headers |> List.rev; Definitions = doc.Definitions |> List.rev }
+        | WS ([],_) -> { doc with Headers = doc.Headers |> List.rev; Definitions = doc.Definitions |> List.rev }
         | ThriftInclude (incl,rest) -> parse rest { doc with Headers = Ast.IncludeHeader(incl)::doc.Headers }
         | ThriftNamespace (nspace,rest) -> parse rest { doc with Headers = Ast.NamespaceHeader(nspace)::doc.Headers }
         | Constant (cnst,rest) -> parse rest { doc with Definitions = cnst::doc.Definitions }
@@ -496,5 +503,5 @@ let parseDocument (document:string) =
         | Union (union,rest) -> parse rest { doc with Definitions = union::doc.Definitions }
         | Exception (excp,rest) -> parse rest { doc with Definitions = excp::doc.Definitions }
         | Service (svc,rest) -> parse rest { doc with Definitions = svc::doc.Definitions }
-        | _ -> failwithf "Error parsing document '%s' at '%s'" document (toString input)
-    parse (asCharList document) { Headers = []; Definitions = [] }
+        | _ -> failwithf "Error parsing document at position %i" (snd input)
+    parse (asInput document) { Headers = []; Definitions = [] }

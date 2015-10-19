@@ -1,0 +1,7 @@
+packages/
+*.dll
+*.xml
+*.pdb
+*.suo
+obj/
+bin/

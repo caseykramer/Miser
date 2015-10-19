@@ -1,0 +1,9 @@
+source http://nuget.org/api/v2
+
+nuget FParsec framework: net45
+nuget Thrift framework: net45
+
+nuget FAKE framework: net45
+nuget NUnit.Runners framework: net45
+nuget NUnit framework: net45
+nuget FSharp.Core !~> 3.0

@@ -70,6 +70,7 @@ type DefinitionInfo =
     | ExceptionDef of ExceptionDefinition
     | ServiceDef of ServiceDefinition
 
+[<RequireQualifiedAccess>]
 type NamespaceScope = 
     | All
     | Cpp
@@ -84,7 +85,7 @@ type NamespaceScope =
     | Smalltalk
     | Other of string
 
-type Namespace = Namespace of scope:NamespaceScope*identifier:Identifier
+type Namespace = Namespace of scope:NamespaceScope*subScope:string option*identifier:Identifier
 
 type Include = Include of Literal
 

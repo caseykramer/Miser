@@ -105,6 +105,9 @@ module internal ThriftBuilder =
         generateAsync:bool 
         useOptions:bool }
 
+    type BaseEnum =
+        | Default = 0
+
     let defaultConfig = 
         { generateLenses = false
           generateAsync = false
@@ -338,12 +341,26 @@ module internal ThriftBuilder =
         let t = buildObject typeMap typeof<obj> name fields
         name,t
 
+    let buildEnum name fields = 
+        let t = ProvidedTypeDefinition(name,Some typeof<Enum>,IsErased = false)
+        t.SetEnumUnderlyingType typeof<int>
+        fields |> List.fold (fun (i,values) (ThriftAST.Identifier(id),value) ->
+            let v = 
+                match value with
+                | None -> int i
+                | Some v -> int v
+            (int64 v + 1L),ProvidedLiteralField(id,typeof<int>,box v)::values) (1L,[])
+        |> snd 
+        |> t.AddMembers
+        name,t
+
 type internal StructCompiler(root:ProvidedTypeDefinition,tdoc) =
     let items = match tdoc with ThriftAST.Document(_,items) -> items
     let compiledTypes = System.Collections.Generic.Dictionary<_,_>()
     member __.Compile() =
         items |> List.toSeq
               |> Seq.choose (function 
+                                | ThriftAST.EnumDef(ThriftAST.Enum(ThriftAST.Identifier(name),fields)) -> ThriftBuilder.buildEnum name fields |> Some
                                 | ThriftAST.StructDef(ThriftAST.Struct(ThriftAST.Identifier(name),_) as s) -> ThriftBuilder.buildStruct compiledTypes name s |> Some
                                 | ThriftAST.ExceptionDef(ThriftAST.Exception(ThriftAST.Identifier(name),_) as e) -> ThriftBuilder.buildException compiledTypes name e |> Some
                                 | ThriftAST.UnionDef(ThriftAST.Union(ThriftAST.Identifier(name),_) as u) -> ThriftBuilder.buildUnion compiledTypes name u |> Some

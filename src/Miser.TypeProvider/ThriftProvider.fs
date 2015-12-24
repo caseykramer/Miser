@@ -12,6 +12,10 @@ open ProviderImplementation.ProvidedTypes
 module internal Option = 
     let orElse v o = match o with | None -> v | Some v -> v
 
+module internal Expr = 
+    open FSharp.Quotations
+    let raw (expr:Expr<_>) = expr.Raw
+
 module internal ThriftHandler =
     open FParsec 
     module AST = ThriftAST
@@ -25,27 +29,11 @@ module internal ThriftHandler =
     let getNamespace (doc:AST.Document) =
         match doc with
         | AST.Document(headers,_) ->
-            headers |> List.filter(function AST.NamespaceHeader(ns) -> true | _ -> false) 
+            headers |> List.filter(function AST.NamespaceHeader(_) -> true | _ -> false) 
                     |> List.tryPick(function | AST.NamespaceHeader(AST.Namespace(AST.NamespaceScope.FSharp,_,AST.Identifier(ns))) -> Some(ns) 
                                              | AST.NamespaceHeader(AST.Namespace(AST.NamespaceScope.CSharp,_,AST.Identifier(ns))) -> Some(ns)
                                              | AST.NamespaceHeader(AST.Namespace(AST.NamespaceScope.All,_,AST.Identifier(ns))) -> Some(ns)
                                              | _ -> None)
-    let getStructs (doc:AST.Document) = 
-        match doc with
-        | AST.Document(_,defs) ->
-            defs |> List.choose(function AST.StructDef(s) -> Some s | _ -> None)
-    let getExceptions (doc:AST.Document) =
-        match doc with
-        | AST.Document(_,defs) ->
-            defs |> List.choose (function AST.ExceptionDef(e) -> Some e | _ -> None)
-    let getEnums (doc:AST.Document) = 
-        match doc with
-        | AST.Document(_,defs) ->
-            defs |> List.choose (function AST.EnumDef(e) -> Some e | _ -> None)
-    let getServies (doc:AST.Document) = 
-        match doc with
-        | AST.Document(_,defs) ->
-            defs |> List.choose (function AST.ServiceDef(s) -> Some s | _ -> None)
 
 module internal Naming = 
     let toPascal (s:string) = 
@@ -102,7 +90,7 @@ module internal PropertyBuilder =
     
     let createProperty typeMap (field:ThriftAST.FieldDefinition) = 
         match field with
-        | ThriftAST.Field(_,isReq,fieldType,ThriftAST.Identifier(fName),value) ->
+        | ThriftAST.Field(_,isReq,fieldType,ThriftAST.Identifier(fName),_) ->
             let field = ProvidedField(Naming.toFieldName fName,getType typeMap fieldType isReq)
             
             let prop = ProvidedProperty(Naming.toPascal fName,getType typeMap fieldType isReq)
@@ -111,31 +99,23 @@ module internal PropertyBuilder =
             (fName,[field :> MemberInfo;prop :> MemberInfo])
 
 module internal ThriftBuilder =
-    
-    (*
-    let readStruct (iprot:Thrift.Protocol.TProtocol) = 
-        let rec readFields (field:Thrift.Protocol.TField) =
-            if field.Type = Thrift.Protocol.TType.Stop then
-                ()
-            if field.ID = 1s && field.Type = Thrift.Protocol.TType.String then Name <- iprot.ReadString()
-            elif field.ID = 2s && field.Type = Thrift.Protocol.TType.I32 then Id <- iprot.ReadI32()
-            elif field.ID = 3s && field.Type = Thrift.Protocol.TType.String then Description <- iprot.ReadString()
-            else Thrift.Protocol.TProtocolUtil.Skip(iprot,field.Type)
-            iprot.ReadFieldEnd()
-            readFields (iprot.ReadFieldBegin())
-        iprot.ReadStructBegin() |> ignore
-        let field = iprot.ReadFieldBegin()
-        readFields field
-        iprot.ReadFieldEnd()
-        iprot.ReadStructEnd()
-    *)
 
-    let someCaseInfo ftype = 
-        let makeOpType t = 
-            let op = typeof<Option<_>>.GetGenericTypeDefinition()
-            op.MakeGenericType([|t|])
-        let opType =
-            match ftype with
+    type ThriftConfig = {
+        generateLenses:bool
+        generateAsync:bool 
+        useOptions:bool }
+
+    let defaultConfig = 
+        { generateLenses = false
+          generateAsync = false
+          useOptions = true }
+    
+    let private makeOpType t = 
+        let op = typeof<Option<_>>.GetGenericTypeDefinition()
+        op.MakeGenericType([|t|])
+    
+    let private toOpType t =
+        match t with
             | ThriftAST.BaseField(ThriftAST.BaseType.Binary) -> makeOpType typeof<byte array>
             | ThriftAST.BaseField(ThriftAST.BaseType.Bool) -> makeOpType typeof<bool>
             | ThriftAST.BaseField(ThriftAST.BaseType.Byte) -> makeOpType typeof<byte>
@@ -145,10 +125,17 @@ module internal ThriftBuilder =
             | ThriftAST.BaseField(ThriftAST.BaseType.I64) -> makeOpType typeof<int64>
             | ThriftAST.BaseField(ThriftAST.BaseType.SList) -> makeOpType typeof<string list>
             | ThriftAST.BaseField(ThriftAST.BaseType.String) -> makeOpType typeof<string>
+    
+    let someCaseInfo ftype = 
+        let opType = toOpType ftype
         let ctor = opType.GetMethods(BindingFlags.Public ||| BindingFlags.Static) |> Array.find (fun mi -> mi.Name = "Some")
         ctor
-        
 
+    let getOpValue ftype getField:Expr =
+        let opType = toOpType ftype
+        let value = opType.GetMethods() |> Array.find (fun mi -> mi.Name = "get_Value")
+        Expr.Call(getField,value,[])
+        
     let normalizeFieldIds (fields:ThriftAST.FieldDefinition list) = 
         fields 
         |> List.fold (fun (counter,fields) field -> 
@@ -192,28 +179,66 @@ module internal ThriftBuilder =
         | Some(true) -> getVal
         | _ -> Expr.Call(someCaseInfo f,[getVal])
 
+    let getWriterMethod (isReq) (f:ThriftAST.FieldType) (oprot:Expr<Thrift.Protocol.TProtocol>) (getField:Expr):Expr = 
+        let getExpr =
+            match isReq with
+            | Some(true) -> getField
+            | _ -> getOpValue f getField
+        match f with
+        | ThriftAST.BaseField(ThriftAST.BaseType.Binary) -> <@@ (%oprot).WriteBinary(%%getExpr:byte []) @@>
+        | ThriftAST.BaseField(ThriftAST.BaseType.Bool) -> <@@ (%oprot).WriteBool(%%getExpr:bool) @@>
+        | ThriftAST.BaseField(ThriftAST.BaseType.Byte) -> <@@ (%oprot).WriteByte <| sbyte (%%getExpr:byte) @@>
+        | ThriftAST.BaseField(ThriftAST.BaseType.Double) -> <@@ (%oprot).WriteDouble(%%getExpr:float) @@>
+        | ThriftAST.BaseField(ThriftAST.BaseType.I16) -> <@@ (%oprot).WriteI16(%%getExpr:int16) @@>
+        | ThriftAST.BaseField(ThriftAST.BaseType.I32) -> <@@ (%oprot).WriteI32(%%getExpr:int32) @@>
+        | ThriftAST.BaseField(ThriftAST.BaseType.I64) -> <@@ (%oprot).WriteI64(%%getExpr:int64) @@>
+        | ThriftAST.BaseField(ThriftAST.BaseType.SList) -> <@@ (%oprot).WriteString(%%getExpr:string) @@>
+        | ThriftAST.BaseField(ThriftAST.BaseType.String) -> <@@ (%oprot).WriteString(%%getExpr:string) @@>
+        // Basicaly from here down I'm faking it
+        | ThriftAST.IdentifierField _ -> <@@ fun (field:Thrift.Protocol.TAbstractBase) -> field.Write(%oprot) @@>
+        | ThriftAST.ContainerField(ThriftAST.ContainerType.List(_)) -> <@@ fun list -> (%oprot).WriteListBegin(list) @@>
+        | ThriftAST.ContainerField(ThriftAST.ContainerType.Map(_)) -> <@@ fun map -> (%oprot).WriteMapBegin(map) @@>
+        | ThriftAST.ContainerField(ThriftAST.ContainerType.Set(_)) -> <@@ fun set -> (%oprot).WriteSetBegin(set) @@>
+    
     let buildReaderForField ( this:Expr) (iprot:Expr<Thrift.Protocol.TProtocol>) (fieldVar:Expr<Thrift.Protocol.TField>) fieldInfo (ThriftAST.Field(Some(fieldId),isReq,fieldType,_,_)) =
-            let reader = getReaderMethod isReq fieldType iprot
-            let setField = Expr.PropertySet(this,fieldInfo,reader)
-            let targetType = getFieldType fieldType
-            let fieldID:Expr<int16> = Expr.Value(int16 fieldId) |> Expr.Cast
+        let reader = getReaderMethod isReq fieldType iprot
+        let setField = Expr.PropertySet(this,fieldInfo,reader)
+        let targetType = getFieldType fieldType
+        let fieldID:Expr<int16> = Expr.Value(int16 fieldId) |> Expr.Cast
 
-            let checkField = <@ (%fieldVar).ID = (%fieldID) && (%fieldVar).Type = %targetType @>
-            checkField,setField
+        let checkField = <@ (%fieldVar).ID = (%fieldID) && (%fieldVar).Type = %targetType @>
+        checkField,setField
 
-    let buildReader (fields:ThriftAST.FieldDefinition list) = 
-        normalizeFieldIds fields
-         
-    let createReaderForStruct (fieldNfos:Map<string,ProvidedProperty>)(s:ThriftAST.StructDefinition) = 
-        let (ThriftAST.Struct(_,fields)) = s
-        
-        fun (args:Expr list) ->
+    let buildWriterForField (this:Expr) (oprot:Expr<Thrift.Protocol.TProtocol>) (fieldVar:Expr<Thrift.Protocol.TField>) (fieldInfo:ProvidedProperty) (ThriftAST.Field(Some(fieldId),isReq,fieldType,ThriftAST.Identifier(fieldName),_)) =
+        let getField = Expr.PropertyGet(this,fieldInfo)
+        let fieldId:Expr<int16> = Expr.Value(int16 fieldId) |> Expr.Cast
+        let fieldName:Expr<string> = Expr.Value(fieldName) |> Expr.Cast
+        let fieldTType:Expr<Thrift.Protocol.TType> = getFieldType fieldType
+        let fieldAsObj:Expr<obj> = Expr.Coerce(getField,typeof<obj>) |> Expr.Cast
+        let canWrite:Expr<bool> = <@ not (isNull (%fieldAsObj)) @>
+        let writer:Expr<unit> = getWriterMethod isReq fieldType oprot getField |> Expr.Cast
+        <@
+            if (%canWrite) then
+                let mutable field = (%fieldVar)
+                field.Name <- %fieldName
+                field.Type <- %fieldTType
+                field.ID <- %fieldId
+                (%oprot).WriteFieldBegin(field)
+                (%writer)
+                (%oprot).WriteFieldEnd()
+        @> 
+
+    let createReaderForStruct (fieldNfos:Map<string,ProvidedProperty>) (name,fields) = 
+        let buildReader (args:Expr list) =
             let iprot:Expr<Thrift.Protocol.TProtocol> = args.[1] |> Expr.Cast
             let this = args.[0]
             let fieldVar = Var("field",typeof<Thrift.Protocol.TField>) 
             let fieldVarExpr = Expr.Var(fieldVar) |> Expr.Cast
             let buildField = buildReaderForField this iprot (fieldVarExpr)
-            let fields = fields |> List.choose (fun f ->
+            let fields = fields 
+                         |> normalizeFieldIds 
+                         |> snd 
+                         |> List.choose (fun f ->
                             let (ThriftAST.Field(_,_,_,ThriftAST.Identifier(name),_)) = f
                             match Map.tryFind name fieldNfos with
                             | None -> None
@@ -224,7 +249,8 @@ module internal ThriftBuilder =
             <@
                 let iprot:Thrift.Protocol.TProtocol = (%%(args.[1]):Thrift.Protocol.TProtocol)
                 let rec readField (field:Thrift.Protocol.TField) = 
-                    if field.Type = Thrift.Protocol.TType.Stop then ignore()
+                    if field.Type = Thrift.Protocol.TType.Stop then 
+                        ignore()
                     else
                         (%applyFunc) field
                         readField (iprot.ReadFieldBegin())
@@ -232,25 +258,45 @@ module internal ThriftBuilder =
                 iprot.ReadStructBegin() |> ignore
                 readField (iprot.ReadFieldBegin())
                 iprot.ReadStructEnd()
-            @>.Raw
-    let createWriterForStruct (s:ThriftAST.StructDefinition) = 
-        let name = let (ThriftAST.Struct(ThriftAST.Identifier(sname),_)) = s in sname
-        fun (args:Expr list) ->
-            <@@
-                let oprot:Thrift.Protocol.TProtocol = (%%(args.[1]):Thrift.Protocol.TProtocol)
-                oprot.WriteStructEnd()
-            @@>
+            @>
+        buildReader
+    let createWriterForStruct (fieldNfos:Map<string,ProvidedProperty>) (name,fields) = 
+        let buildWriter (args:Expr list) =
+            let oprot:Expr<Thrift.Protocol.TProtocol> = args.[1] |> Expr.Cast
+            let this = args.[0]
+            let fieldVar = Var("field",typeof<Thrift.Protocol.TField>,true) 
+            let fieldVarExpr = Expr.Var(fieldVar) |> Expr.Cast
+            let buildField = buildWriterForField this oprot fieldVarExpr
+            let fields = fields 
+                         |> normalizeFieldIds 
+                         |> snd 
+                         |> List.choose (fun f ->
+                            let (ThriftAST.Field(_,_,_,ThriftAST.Identifier(name),_)) = f
+                            match Map.tryFind name fieldNfos with
+                            | None -> None
+                            | Some fNfo -> Some (buildField fNfo f))
+            let allFields = List.foldBack (fun fieldExpr exp -> Expr.Sequential(exp,fieldExpr)) fields <@ () @>.Raw
+            let applyWrite apply:Expr<Thrift.Protocol.TField -> unit> = Expr.Lambda(fieldVar,apply) |> Expr.Cast
+            <@
+                let tstruct = new Thrift.Protocol.TStruct(name)
+                (%oprot).WriteStructBegin(tstruct)
+                (%(applyWrite allFields)) (new Thrift.Protocol.TField(null,Thrift.Protocol.TType.Stop,0s))
+                (%oprot).WriteFieldStop()
+                (%oprot).WriteStructEnd()
+            @>
+        buildWriter 
 
-    let private baseReader = typeof<Thrift.Protocol.TBase>.GetMethod "Read"
-    let private baseWriter = typeof<Thrift.Protocol.TBase>.GetMethod "Write"
-        
-    let createReader fieldInfo s = 
-        ProvidedMethod("Read",[ProvidedParameter("tProtocol",typeof<Thrift.Protocol.TProtocol>)],typeof<Void>,
-                                        InvokeCode = createReaderForStruct fieldInfo s)
+    let inline createReader fieldInfo s = 
+        ProvidedMethod("Read",
+                       [ProvidedParameter("tProtocol",typeof<Thrift.Protocol.TProtocol>)],
+                       typeof<Void>,
+                       InvokeCode = ((createReaderForStruct fieldInfo s) >> Expr.raw))
     
-    let createWriter s = 
-        ProvidedMethod("Write",[ProvidedParameter("tProtocol",typeof<Thrift.Protocol.TProtocol>)],typeof<Void>,
-                                        InvokeCode = createWriterForStruct s)
+    let inline createWriter fieldInfo s = 
+        ProvidedMethod("Write",
+                       [ProvidedParameter("tProtocol",typeof<Thrift.Protocol.TProtocol>)],
+                       typeof<Void>,
+                       InvokeCode = ((createWriterForStruct fieldInfo s) >> Expr.raw))
         
 
     let buildProperties typeMap (t:ProvidedTypeDefinition) (fields) = 
@@ -262,25 +308,34 @@ module internal ThriftBuilder =
                 t.AddMember property
                 fieldMap |> Map.add name (property :?> ProvidedProperty)) Map.empty
         fieldMap
-    let private buildObject typeMap baseType name s = 
+    let inline private buildObject typeMap baseType name s = 
         let t = ProvidedTypeDefinition(Naming.toPascal name,Some baseType,IsErased = false)
         let fieldMap = buildProperties typeMap t s
         let ctor = ProvidedConstructor([])
-        ctor.InvokeCode <- (fun args -> <@@ ignore() @@>)
+        ctor.InvokeCode <- (fun _ -> <@@ ignore() @@>)
         t.AddMember ctor
-        fieldMap,t
-    let buildException typeMap name (ThriftAST.Exception(_,s)) = 
-        let fieldMap,t = buildObject typeMap typeof<Exception> name s
+        let reader = createReader fieldMap (name,s)
+        reader.SetMethodAttrs(MethodAttributes.Virtual)
+        let writer = createWriter fieldMap (name,s)
+        writer.SetMethodAttrs(MethodAttributes.Virtual)
+        t.AddInterfaceImplementation(typeof<Thrift.Protocol.TBase>)
+        t.AddInterfaceImplementation(typeof<Thrift.Protocol.TAbstractBase>)
+        let tbaseRead = typeof<Thrift.Protocol.TBase>.GetMethods() |> Array.head
+        let tbaseWrite = typeof<Thrift.Protocol.TAbstractBase>.GetMethods() |> Array.head
+        t.DefineMethodOverride(reader,tbaseRead)
+        t.DefineMethodOverride(writer,tbaseWrite)
+        t.AddMembers [reader;writer]
+        t
+    let buildException typeMap name (ThriftAST.Exception(_,fields)) = 
+        let t = buildObject typeMap typeof<Exception> name fields
         name,t
 
-    let buildUnion typeMap name (ThriftAST.Union(_,s)) =
-        let fieldMap,t = buildObject typeMap typeof<obj> name s
+    let buildUnion typeMap name (ThriftAST.Union(_,fields)) =
+        let t = buildObject typeMap typeof<obj> name fields
         name,t
 
-    let buildStruct typeMap name (ThriftAST.Struct(_,s) as structObj) = 
-        let fieldMap,t = buildObject typeMap typeof<obj> name s
-        let reader = createReader fieldMap structObj
-        t.AddMember reader
+    let buildStruct typeMap name (ThriftAST.Struct(_,fields)) = 
+        let t = buildObject typeMap typeof<obj> name fields
         name,t
 
 type internal StructCompiler(root:ProvidedTypeDefinition,tdoc) =
@@ -301,32 +356,38 @@ type internal StructCompiler(root:ProvidedTypeDefinition,tdoc) =
 [<TypeProvider>]
 type public Provider(config:TypeProviderConfig) as this = 
     inherit TypeProviderForNamespaces()
-    let thisAssembly = Assembly.GetExecutingAssembly()
+    let thisAssembly = Assembly.LoadFrom(config.RuntimeAssembly)
     let rootNamespace = "Miser"
     let parameters = [ProvidedStaticParameter("path",typeof<string>)]
     let t = ProvidedTypeDefinition(thisAssembly,rootNamespace,"Thrift",None,IsErased = false)
-    let tempAsmPath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),Path.GetFileName(IO.Path.ChangeExtension(IO.Path.GetTempFileName(), ".dll")))
+    let tempAsmPath = Path.Combine(
+                        Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),
+                        Path.GetFileName(IO.Path.ChangeExtension(IO.Path.GetTempFileName(), ".dll")))
     do printfn "Assembly: %s" tempAsmPath
     let tempAsm = ProvidedAssembly tempAsmPath
-    do t.DefineStaticParameters(parameters,apply = 
-        fun typeName parameterValues ->
-            let path = 
-                match parameterValues with
-                | [| :? string as path |] -> path
-                | _ -> failwith "A Path to a thrift definition file is required"
-            let thriftDoc = 
-                    if (File.Exists(path)) then
-                        ThriftHandler.loadFile path
-                    elif (File.Exists(path+".thrift")) then
-                        ThriftHandler.loadFile (path+".thrift")
-                    else failwithf "Unable to find file: %s" path
-            let rootName = Path.GetFileNameWithoutExtension(path)
-            let namespaceName = ThriftHandler.getNamespace thriftDoc |> Option.orElse (rootName)
-            let root = ProvidedTypeDefinition(thisAssembly,namespaceName,typeName,Some typeof<obj>,IsErased = false)
-            root.AddXmlDoc("Miser Provider for " + path)
-            let s= StructCompiler(root,thriftDoc).Compile()
-            tempAsm.AddTypes [root]
-            root)
+    let applyParameters typeName (parameterValues:obj []) = 
+        let path = 
+            match parameterValues with
+            | [| :? string as path |] -> path
+            | _ -> failwith "A Path to a thrift definition file is required"
+        let thriftDoc = 
+                if (File.Exists(path)) then
+                    ThriftHandler.loadFile path
+                elif (File.Exists(path+".thrift")) then
+                    ThriftHandler.loadFile (path+".thrift")
+                else failwithf "Unable to find file: %s" path
+        let rootName = Path.GetFileNameWithoutExtension(path)
+        let namespaceName = ThriftHandler.getNamespace thriftDoc |> Option.orElse (rootName)
+        let root = ProvidedTypeDefinition(thisAssembly,
+                                          namespaceName,
+                                          typeName,
+                                          Some typeof<obj>,
+                                          IsErased = false)
+        root.AddXmlDoc("Miser Provider for " + path)
+        let _ = StructCompiler(root,thriftDoc).Compile()
+        tempAsm.AddTypes [root]
+        root
+    do t.DefineStaticParameters(parameters,apply = applyParameters)
     do 
         tempAsm.AddTypes [t]
         this.RegisterRuntimeAssemblyLocationAsProbingFolder config

@@ -45,6 +45,10 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="ThriftAST.fs" />
     <Compile Include="ThriftParser.fs" />
+    <Compile Include="Tcp\Sockets.fs" />
+    <Compile Include="Tcp\SocketMonad.fs" />
+    <Compile Include="Tcp\Tcp.fs" />
+    <Compile Include="ThriftAsync.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

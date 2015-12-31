@@ -209,6 +209,17 @@ type Const =
                 | Const (constType,name,value) -> sprintf "%s:%A = %A" name.Display constType value
         override this.ToString() = 
             sprintf "%A" this
+
+type TType = 
+    | Const of Const
+    | TypeDef of TypeDef
+    | DefinitionType of DefinitionType
+    | Enum of Enum
+    | Union of Union
+    | Struct of Struct
+    | Exception of Exception
+    | Service of Service
+    | Function of Function
 [<StructuredFormatDisplay("Definition: ({Display})");DebuggerDisplay("Definition: ({Display})")>]
 type Definition = 
      | ConstDefinition of Const
@@ -303,3 +314,4 @@ type Header =
         override this.ToString() = 
             sprintf "%A" this
 type Document = { Headers:Header list; Definitions:Definition list }
+type Program = Program of Document list

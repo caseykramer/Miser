@@ -1,0 +1,64 @@
+﻿//This parser has been writen with help of "Real world OCaml" book By Yaron Minsky, Anil Madhavapeddy, Jason Hickey (chapter 16)
+%{
+open Ast
+%}
+
+%start start
+
+%token <string> STRING
+%token <string> ID
+%token <int64> NUMBER
+%token <bool> BOOL
+%token <decimal> DECIMAL
+%token <string> LITERAL
+%token INCLUDE
+%token NAMESPACE
+%token COMMA
+%token SEMICOLON
+%token CONST
+%token EOF
+
+%type <Ast.Program option> start
+
+%%
+
+start: Program { $1 }
+
+Program:
+    | EOF { None }
+    | HeaderList DefinitionList { Some { Headers = :ist.rev $1; Definitions = List.rev $2 } }
+
+HeaderList:
+    | HeaderList CommaOrSemicolonOptional Header { $2::$1 }
+
+Header:
+    | Include { IncludeHeader $1 }
+    | NAMESPACE ID ID { Namespace (NamespaceScope.Other $1,Identifier $2) }
+    | {}
+
+Include:
+    | INCLUDE STRING { Include StringLiteral $1 }
+
+Literal:
+    | STRING { StringLiteral $1}
+    | NUMBER { NumericLiteral $1 }
+    | BOOL { BoolLiteral $1 }
+    | DECIMAL { DecimalLiteral $1 }
+
+DefinitionList:
+    | DefinitionList CommaOrSemicolonOptional Definition { $2::$1 }
+
+Definition:
+    | Const { ConstDefinition $1 }
+    | TypeDefinition { TypeDefinition $1 }
+
+Const:
+    | {}
+
+TypeDefinition: 
+    | {}
+
+CommaOrSemicolonOptional:
+    | COMMA {}
+    | SEMICOLON {}
+    | {}

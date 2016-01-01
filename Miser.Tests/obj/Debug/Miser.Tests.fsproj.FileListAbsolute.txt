@@ -1,0 +1,15 @@
+C:\code\Miser\Miser.Tests\bin\Debug\Miser.Tests.dll.config
+C:\code\Miser\Miser.Tests\bin\Debug\Miser.Tests.XML
+C:\code\Miser\Miser.Tests\bin\Debug\Miser.Tests.dll
+C:\code\Miser\Miser.Tests\bin\Debug\Miser.Tests.pdb
+C:\code\Miser\Miser.Tests\bin\Debug\FSharp.Core.dll
+C:\code\Miser\Miser.Tests\bin\Debug\FsUnit.NUnit.dll
+C:\code\Miser\Miser.Tests\bin\Debug\Miser.dll
+C:\code\Miser\Miser.Tests\bin\Debug\nunit.framework.dll
+C:\code\Miser\Miser.Tests\bin\Debug\Miser.pdb
+C:\code\Miser\Miser.Tests\bin\Debug\Miser.xml
+C:\code\Miser\Miser.Tests\bin\Debug\FSharp.Core.xml
+C:\code\Miser\Miser.Tests\bin\Debug\nunit.framework.xml
+C:\code\Miser\Miser.Tests\obj\Debug\Miser.Tests.fsprojResolveAssemblyReference.cache
+C:\code\Miser\Miser.Tests\obj\Debug\Miser.Tests.dll
+C:\code\Miser\Miser.Tests\obj\Debug\Miser.Tests.pdb

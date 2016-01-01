@@ -657,8 +657,8 @@ type ProvidedConstructor(parameters : ProvidedParameter list) =
     override __.Invoke(_invokeAttr, _binder, _parameters, _culture)      = notRequired "Invoke" (nameText())
     override __.Invoke(_obj, _invokeAttr, _binder, _parameters, _culture) = notRequired "Invoke" (nameText())
     override __.ReflectedType                                        = notRequired "ReflectedType" (nameText())
-    override __.GetMethodImplementationFlags()                       = notRequired "GetMethodImplementationFlags" (nameText())
-    override __.MethodHandle                                         = notRequired "MethodHandle" (nameText())
+    override __.GetMethodImplementationFlags()                       = MethodImplAttributes.Managed //notRequired "GetMethodImplementationFlags" (nameText())
+    override __.MethodHandle                                         = RuntimeMethodHandle() //notRequired "MethodHandle" (nameText()); 
     override __.GetCustomAttributes(_inherit)                     = notRequired "GetCustomAttributes" (nameText())
     override __.GetCustomAttributes(_attributeType, _inherit)      = notRequired "GetCustomAttributes" (nameText())
 
@@ -756,7 +756,7 @@ type ProvidedMethod(methodName: string, parameters: ProvidedParameter list, retu
 
     override __.ReturnTypeCustomAttributes                           = notRequired "ReturnTypeCustomAttributes" methodName
     override __.GetBaseDefinition()                                  = notRequired "GetBaseDefinition" methodName
-    override __.GetMethodImplementationFlags()                       = notRequired "GetMethodImplementationFlags" methodName
+    override __.GetMethodImplementationFlags()                       = MethodImplAttributes.Managed //notRequired "GetMethodImplementationFlags" methodName; 
     override __.Invoke(_obj, _invokeAttr, _binder, _parameters, _culture) = notRequired "Invoke" methodName
     override __.ReflectedType                                        = notRequired "ReflectedType" methodName
     override __.GetCustomAttributes(_inherit)                        = notRequired "GetCustomAttributes" methodName
@@ -810,8 +810,8 @@ type ProvidedProperty(propertyName: string, propertyType: Type, ?parameters: Pro
 
     // Implement overloads
     override __.PropertyType = propertyType
-    override __.SetValue(_obj, _value, _invokeAttr, _binder, _index, _culture) = notRequired "SetValue" propertyName
-    override __.GetAccessors _nonPublic  = notRequired "nonPublic" propertyName
+    override __.SetValue(_obj, _value, _invokeAttr, _binder, _index, _culture) = ignore() // notRequired "SetValue" propertyName
+    override __.GetAccessors _nonPublic  = [||] // notRequired "nonPublic" propertyName
     override __.GetGetMethod _nonPublic = if hasGetter() then getter.Force() :> MethodInfo else null
     override __.GetSetMethod _nonPublic = if hasSetter() then setter.Force() :> MethodInfo else null
     override __.GetIndexParameters() = [| for p in parameters -> upcast p |]
@@ -826,7 +826,7 @@ type ProvidedProperty(propertyName: string, propertyType: Type, ?parameters: Pro
     override __.ReflectedType                                     = notRequired "ReflectedType" propertyName
     override __.GetCustomAttributes(_inherit)                  = notRequired "GetCustomAttributes" propertyName
     override __.GetCustomAttributes(_attributeType, _inherit)   = notRequired "GetCustomAttributes" propertyName
-    override __.IsDefined(_attributeType, _inherit)             = notRequired "IsDefined" propertyName
+    override __.IsDefined(_attributeType, _inherit)             = false //notRequired "IsDefined" propertyName
 
 type ProvidedEvent(eventName:string,eventHandlerType:Type) = 
     inherit System.Reflection.EventInfo()
@@ -881,7 +881,7 @@ type ProvidedEvent(eventName:string,eventHandlerType:Type) =
     override __.ReflectedType                                  = notRequired "ReflectedType" eventName
     override __.GetCustomAttributes(_inherit)                  = notRequired "GetCustomAttributes" eventName
     override __.GetCustomAttributes(_attributeType, _inherit)  = notRequired "GetCustomAttributes" eventName
-    override __.IsDefined(_attributeType, _inherit)            = notRequired "IsDefined" eventName
+    override __.IsDefined(_attributeType, _inherit)            = false //notRequired "IsDefined" eventName
 
 type ProvidedLiteralField(fieldName:string,fieldType:Type,literalValue:obj) = 
     inherit System.Reflection.FieldInfo()
@@ -915,11 +915,11 @@ type ProvidedLiteralField(fieldName:string,fieldType:Type,literalValue:obj) =
     override __.ReflectedType                                     = notRequired "ReflectedType" fieldName
     override __.GetCustomAttributes(_inherit)                  = notRequired "GetCustomAttributes" fieldName
     override __.GetCustomAttributes(_attributeType, _inherit)   = notRequired "GetCustomAttributes" fieldName
-    override __.IsDefined(_attributeType, _inherit)             = notRequired "IsDefined" fieldName
+    override __.IsDefined(_attributeType, _inherit)             = false //notRequired "IsDefined" fieldName
 
-    override __.SetValue(_obj, _value, _invokeAttr, _binder, _culture) = notRequired "SetValue" fieldName
+    override __.SetValue(_obj, _value, _invokeAttr, _binder, _culture) = ignore() //notRequired "SetValue" fieldName
     override __.GetValue(_obj) : obj = notRequired "GetValue" fieldName
-    override __.FieldHandle = notRequired "FieldHandle" fieldName
+    override __.FieldHandle = RuntimeFieldHandle() //notRequired "FieldHandle" fieldName
 
 type ProvidedField(fieldName:string,fieldType:Type) = 
     inherit System.Reflection.FieldInfo()
@@ -953,11 +953,11 @@ type ProvidedField(fieldName:string,fieldType:Type) =
     override __.ReflectedType                                     = notRequired "ReflectedType" fieldName
     override __.GetCustomAttributes(_inherit)                  = notRequired "GetCustomAttributes" fieldName
     override __.GetCustomAttributes(_attributeType, _inherit)   = notRequired "GetCustomAttributes" fieldName
-    override __.IsDefined(_attributeType, _inherit)             = notRequired "IsDefined" fieldName
+    override __.IsDefined(_attributeType, _inherit)             = false //notRequired "IsDefined" fieldName
 
-    override __.SetValue(_obj, _value, _invokeAttr, _binder, _culture) = notRequired "SetValue" fieldName
+    override __.SetValue(_obj, _value, _invokeAttr, _binder, _culture) = ignore() //notRequired "SetValue" fieldName
     override __.GetValue(_obj) : obj = notRequired "GetValue" fieldName
-    override __.FieldHandle = notRequired "FieldHandle" fieldName
+    override __.FieldHandle = new RuntimeFieldHandle() //notRequired "FieldHandle" fieldName
     
 /// Represents the type constructor in a provided symbol type.
 [<NoComparison>]
@@ -1108,13 +1108,15 @@ type ProvidedSymbolType(kind: SymbolKind, args: Type list) =
     member __.Kind = kind
     member __.Args = args
     
-    override __.Module : Module                                                                   = notRequired "Module" (nameText())
+    override __.Module : Module                                                                   = typeof<obj>.Module //notRequired "Module" (nameText())
     override __.GetConstructors _bindingAttr                                                      = notRequired "GetConstructors" (nameText())
-    override __.GetMethodImpl(_name, _bindingAttr, _binderBinder, _callConvention, _types, _modifiers) = 
+    override x.GetMethodImpl(_name, _bindingAttr, _binderBinder, _callConvention, _types, _modifiers) = 
         match kind with
         | Generic gtd -> 
-            let ty = gtd.GetGenericTypeDefinition().MakeGenericType(Array.ofList args)
-            ty.GetMethod(_name, _bindingAttr)
+            let ty = gtd.GetGenericTypeDefinition() // .MakeGenericType(Array.ofList args)
+            match ty.GetMethod(_name, _bindingAttr) with
+            | null -> null
+            | mi -> ProvidedSymbolMethod(mi,args,x) :> MethodInfo
         | _ -> notRequired "GetMethodImpl" (nameText())
     override __.GetMembers _bindingAttr                                                           = notRequired "GetMembers" (nameText())
     override __.GetMethods _bindingAttr                                                           = notRequired "GetMethods" (nameText())
@@ -1154,7 +1156,7 @@ type ProvidedSymbolType(kind: SymbolKind, args: Type list) =
     override this.MakeArrayType() = ProvidedSymbolType(SymbolKind.SDArray, [this]) :> Type
     override this.MakeArrayType arg = ProvidedSymbolType(SymbolKind.Array arg, [this]) :> Type
 
-type ProvidedSymbolMethod(genericMethodDefinition: MethodInfo, parameters: Type list) =
+and ProvidedSymbolMethod(genericMethodDefinition: MethodInfo, parameters: Type list,?declaringType:ProvidedSymbolType) =
     inherit System.Reflection.MethodInfo()
 
     let convParam (p:ParameterInfo) = 
@@ -1177,7 +1179,10 @@ type ProvidedSymbolMethod(genericMethodDefinition: MethodInfo, parameters: Type 
 
     override __.GetGenericMethodDefinition() = genericMethodDefinition
 
-    override __.DeclaringType = ProvidedSymbolType.convType parameters genericMethodDefinition.DeclaringType
+    override __.DeclaringType = 
+        match declaringType with
+        | None -> ProvidedSymbolType.convType parameters genericMethodDefinition.DeclaringType
+        | Some d -> d :> Type
     override __.ToString() = "Method " + genericMethodDefinition.Name
     override __.Name = genericMethodDefinition.Name
     override __.MetadataToken = genericMethodDefinition.MetadataToken
@@ -1185,19 +1190,19 @@ type ProvidedSymbolMethod(genericMethodDefinition: MethodInfo, parameters: Type 
     override __.CallingConvention = genericMethodDefinition.CallingConvention
     override __.MemberType = genericMethodDefinition.MemberType
 
-    override __.IsDefined(_attributeType, _inherit) : bool = notRequired "IsDefined" genericMethodDefinition.Name
+    override __.IsDefined(_attributeType, _inherit) : bool = false //notRequired "IsDefined" genericMethodDefinition.Name
     override __.ReturnType = ProvidedSymbolType.convType parameters genericMethodDefinition.ReturnType
     override __.GetParameters() = genericMethodDefinition.GetParameters() |> Array.map convParam
     override __.ReturnParameter = genericMethodDefinition.ReturnParameter |> convParam
     override __.ReturnTypeCustomAttributes                           = notRequired "ReturnTypeCustomAttributes" genericMethodDefinition.Name
     override __.GetBaseDefinition()                                  = notRequired "GetBaseDefinition" genericMethodDefinition.Name
-    override __.GetMethodImplementationFlags()                       = notRequired "GetMethodImplementationFlags" genericMethodDefinition.Name
-    override __.MethodHandle                                         = notRequired "MethodHandle" genericMethodDefinition.Name
+    override __.GetMethodImplementationFlags()                       = MethodImplAttributes.Managed //notRequired "GetMethodImplementationFlags" genericMethodDefinition.Name
+    override __.MethodHandle                                         = RuntimeMethodHandle() //notRequired "MethodHandle" genericMethodDefinition.Name
     override __.Invoke(_obj, _invokeAttr, _binder, _parameters, _culture) = notRequired "Invoke" genericMethodDefinition.Name
     override __.ReflectedType                                        = notRequired "ReflectedType" genericMethodDefinition.Name
     override __.GetCustomAttributes(_inherit)                     = notRequired "GetCustomAttributes" genericMethodDefinition.Name
     override __.GetCustomAttributes(_attributeType, _inherit)      =  notRequired "GetCustomAttributes" genericMethodDefinition.Name 
-
+    override __.Module = genericMethodDefinition.Module
 
 
 type ProvidedTypeBuilder() =
@@ -1783,6 +1788,7 @@ type AssemblyGenerator(assemblyFileName) =
             match ty with 
             | :? ProvidedTypeDefinition as ptd ->   
                 if typeMap.ContainsKey ptd then typeMap.[ptd] :> Type else ty
+            | :? ProvidedSymbolType as t -> t :> Type
             | _ -> 
                 if ty.IsGenericType then ty.GetGenericTypeDefinition().MakeGenericType (Array.map convType (ty.GetGenericArguments()))
                 elif ty.HasElementType then 
@@ -2224,6 +2230,7 @@ type AssemblyGenerator(assemblyFileName) =
                                 let dtym =
                                     match convType meth.DeclaringType with
                                     | :? TypeBuilder as dty -> TypeBuilder.GetMethod(dty, gdtym)
+                                    | :? ProvidedSymbolType -> meth // HACK: ugh
                                     | dty -> MethodBase.GetMethodFromHandle(meth.MethodHandle, dty.TypeHandle) :?> _
                                 
                                 assert (dtym <> null)

@@ -100,6 +100,12 @@
     <Compile Include="..\Miser\ThriftParser.fs">
       <Link>ThriftParser.fs</Link>
     </Compile>
+    <Compile Include="Util.fs" />
+    <Compile Include="RuntimeHelpers.fs" />
+    <Compile Include="ThriftHelpers.fs" />
+    <Compile Include="PropertyBuilder.fs" />
+    <Compile Include="ThriftReader.fs" />
+    <Compile Include="ThriftWriter.fs" />
     <Compile Include="ThriftProvider.fs" />
   </ItemGroup>
   <ItemGroup>
